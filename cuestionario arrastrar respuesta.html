@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cuestionario Drag & Drop</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f9;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+    }
+    .pregunta {
+      margin: 20px 0;
+      padding: 15px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .zona-drop {
+      border: 2px dashed #aaa;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      min-height: 50px;
+      margin-top: 10px;
+      background: #fafafa;
+    }
+    .respuesta {
+      padding: 10px 15px;
+      margin: 5px;
+      background: #4a90e2;
+      color: #fff;
+      border-radius: 5px;
+      cursor: grab;
+      display: inline-block;
+    }
+    .correcto {
+      background: #4caf50 !important;
+    }
+    .incorrecto {
+      background: #e74c3c !important;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Cuestionario Drag & Drop</h2>
+
+  <div class="pregunta">
+    <p><strong>1.</strong> ¿Cuál es la capital de Francia?</p>
+    <div class="zona-drop" data-respuesta="París">Arrastra aquí la respuesta</div>
+  </div>
+
+  <div class="pregunta">
+    <p><strong>2.</strong> ¿Cuál es el resultado de 5 + 7?</p>
+    <div class="zona-drop" data-respuesta="12">Arrastra aquí la respuesta</div>
+  </div>
+
+  <h3>Opciones:</h3>
+  <div id="respuestas">
+    <div class="respuesta" draggable="true">París</div>
+    <div class="respuesta" draggable="true">Madrid</div>
+    <div class="respuesta" draggable="true">12</div>
+    <div class="respuesta" draggable="true">10</div>
+  </div>
+
+  <script>
+    const respuestas = document.querySelectorAll(".respuesta");
+    const zonasDrop = document.querySelectorAll(".zona-drop");
+
+    respuestas.forEach(resp => {
+      resp.addEventListener("dragstart", e => {
+        e.dataTransfer.setData("text", e.target.textContent);
+      });
+    });
+
+    zonasDrop.forEach(zona => {
+      zona.addEventListener("dragover", e => {
+        e.preventDefault();
+        zona.style.background = "#dfe6e9";
+      });
+      zona.addEventListener("dragleave", () => {
+        zona.style.background = "#fafafa";
+      });
+      zona.addEventListener("drop", e => {
+        e.preventDefault();
+        zona.style.background = "#fafafa";
+        const data = e.dataTransfer.getData("text");
+        zona.textContent = data;
+
+        if (data === zona.dataset.respuesta) {
+          zona.classList.add("correcto");
+          zona.classList.remove("incorrecto");
+        } else {
+          zona.classList.add("incorrecto");
+          zona.classList.remove("correcto");
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>

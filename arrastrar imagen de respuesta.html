@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cuestionario con arrastrar imágenes</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    .question {
+      margin-bottom: 20px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .options {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .options img {
+      width: 100px;
+      cursor: grab;
+    }
+    .dropzone {
+      width: 200px;
+      height: 200px;
+      border: 2px dashed #555;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0 auto;
+      font-size: 16px;
+      color: #555;
+    }
+    .dropzone.over {
+      background-color: #f0f8ff;
+      border-color: #007BFF;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="question">
+    ¿Cuál de estos animales es un mamífero?
+  </div>
+
+  <div class="options">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/7/73/Lion_waiting_in_Namibia.jpg" 
+         alt="León" draggable="true" id="mamifero">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/Turtle_in_Hawaii.JPG" 
+         alt="Tortuga" draggable="true" id="reptil">
+  </div>
+
+  <div class="dropzone" id="respuesta">
+    Arrastra aquí tu respuesta
+  </div>
+
+  <p id="resultado"></p>
+
+  <script>
+    const dropzone = document.getElementById("respuesta");
+    const resultado = document.getElementById("resultado");
+
+    document.querySelectorAll(".options img").forEach(img => {
+      img.addEventListener("dragstart", e => {
+        e.dataTransfer.setData("id", e.target.id);
+      });
+    });
+
+    dropzone.addEventListener("dragover", e => {
+      e.preventDefault();
+      dropzone.classList.add("over");
+    });
+
+    dropzone.addEventListener("dragleave", () => {
+      dropzone.classList.remove("over");
+    });
+
+    dropzone.addEventListener("drop", e => {
+      e.preventDefault();
+      dropzone.classList.remove("over");
+      const id = e.dataTransfer.getData("id");
+
+      if (id === "mamifero") {
+        resultado.textContent = "✅ Correcto, el león es un mamífero.";
+        resultado.style.color = "green";
+      } else {
+        resultado.textContent = "❌ Incorrecto, la tortuga es un reptil.";
+        resultado.style.color = "red";
+      }
+    });
+  </script>
+
+</body>
+</html>
