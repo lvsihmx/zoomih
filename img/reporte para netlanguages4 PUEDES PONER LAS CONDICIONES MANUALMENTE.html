@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Reportes de Excel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f0f2f5; 
+            color: #333;
+        }
+        .container { 
+            max-width: 900px; 
+            margin: auto; 
+            padding: 30px; 
+            background: #fff; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        }
+        h1, h2 { 
+            color: #333; 
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+        #upload-section { 
+            margin-bottom: 20px; 
+            padding: 20px; 
+            border: 1px dashed #ccc; 
+            border-radius: 8px; 
+        }
+        .report-section { 
+            display: none; 
+            margin-top: 30px; 
+            padding: 20px; 
+            border-top: 2px solid #e9ecef; 
+        }
+        #logo { 
+            max-width: 180px; 
+            margin-bottom: 20px; 
+        }
+        .form-group { 
+            margin-bottom: 15px; 
+        }
+        label { 
+            font-weight: bold; 
+            display: block; 
+            margin-bottom: 5px; 
+        }
+        select, input[type="text"] { 
+            width: 100%; 
+            padding: 8px; 
+            border-radius: 4px; 
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
+        button { 
+            background-color: #007bff; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            transition: background-color 0.3s; 
+        }
+        button:hover { 
+            background-color: #0056b3; 
+        }
+        #report-output {
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .report-row {
+            border-bottom: 1px dashed #ddd;
+            padding: 10px 0;
+        }
+        .report-row:last-child {
+            border-bottom: none;
+        }
+        .report-row h4 {
+            margin: 0;
+            color: #007bff;
+        }
+        .report-row p {
+            margin: 5px 0;
+        }
+        .conditional-text {
+            font-weight: bold;
+            color: #28a745; /* Color por defecto, se puede cambiar con JS */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Generador de Reportes de Excel</h1>
+        
+        <div id="upload-section">
+            <h2>Paso 1: Sube tu archivo Excel</h2>
+            <form id="upload-form">
+                <input type="file" id="excelFile" name="excelFile" accept=".xlsx, .xls">
+                <br><br>
+                <button type="submit">Cargar Datos</button>
+            </form>
+        </div>
+
+        <div class="report-section" id="options-section">
+            <h2>Paso 2: Configura tu reporte</h2>
+            <div class="form-group">
+                <label for="display-columns-select">Selecciona las columnas a mostrar en el reporte (usa Ctrl/Cmd + clic):</label>
+                <select id="display-columns-select" multiple size="5"></select>
+            </div>
+            <div class="form-group">
+                <label for="avg-column1-select">Columna 1 para calcular el promedio:</label>
+                <select id="avg-column1-select"></select>
+            </div>
+            <div class="form-group">
+                <label for="avg-column2-select">Columna 2 para calcular el promedio:</label>
+                <select id="avg-column2-select"></select>
+            </div>
+            <div class="form-group">
+                <h3>Texto Condicional 1</h3>
+                <label for="min-value1">Valor mínimo del rango:</label>
+                <input type="text" id="min-value1" placeholder="Ej. 0">
+                <label for="max-value1">Valor máximo del rango:</label>
+                <input type="text" id="max-value1" placeholder="Ej. 30">
+                <label for="conditional-text1">Texto a mostrar:</label>
+                <input type="text" id="conditional-text1" placeholder="Ej. 'Estado: Bajo'">
+            </div>
+            <div class="form-group">
+                <h3>Texto Condicional 2</h3>
+                <label for="min-value2">Valor mínimo del rango:</label>
+                <input type="text" id="min-value2" placeholder="Ej. 31">
+                <label for="max-value2">Valor máximo del rango:</label>
+                <input type="text" id="max-value2" placeholder="Ej. 60">
+                <label for="conditional-text2">Texto a mostrar:</label>
+                <input type="text" id="conditional-text2" placeholder="Ej. 'Estado: Medio'">
+            </div>
+            <div class="form-group">
+                <h3>Texto Condicional 3</h3>
+                <label for="min-value3">Valor mínimo del rango:</label>
+                <input type="text" id="min-value3" placeholder="Ej. 61">
+                <label for="max-value3">Valor máximo del rango:</label>
+                <input type="text" id="max-value3" placeholder="Ej. 100">
+                <label for="conditional-text3">Texto a mostrar:</label>
+                <input type="text" id="conditional-text3" placeholder="Ej. 'Estado: Alto'">
+            </div>
+            <button id="generate-report-btn">Generar Reporte</button>
+        </div>
+
+        <div class="report-section" id="report-output-section">
+            <h2>Paso 3: Reporte Generado</h2>
+            <img id="logo" src="tu_logo.png" alt="Logotipo de la Empresa">
+            
+            <div id="report-output">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        let excelData = [];
+
+        // Función para manejar la carga del archivo
+        document.getElementById('upload-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const file = document.getElementById('excelFile').files[0];
+            if (!file) {
+                alert('Por favor, selecciona un archivo primero.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                excelData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                if (excelData.length === 0) {
+                    alert('El archivo de Excel está vacío.');
+                    return;
+                }
+
+                const headers = excelData[0];
+                const displaySelect = document.getElementById('display-columns-select');
+                const avg1Select = document.getElementById('avg-column1-select');
+                const avg2Select = document.getElementById('avg-column2-select');
+                
+                displaySelect.innerHTML = '';
+                avg1Select.innerHTML = '';
+                avg2Select.innerHTML = '';
+
+                headers.forEach((header, index) => {
+                    const optionDisplay = document.createElement('option');
+                    optionDisplay.value = index;
+                    optionDisplay.textContent = header || `Columna ${String.fromCharCode(65 + index)}`;
+                    displaySelect.appendChild(optionDisplay);
+                    
+                    const optionAvg1 = optionDisplay.cloneNode(true);
+                    avg1Select.appendChild(optionAvg1);
+
+                    const optionAvg2 = optionDisplay.cloneNode(true);
+                    avg2Select.appendChild(optionAvg2);
+                });
+
+                document.getElementById('options-section').style.display = 'block';
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // Evento para generar el reporte
+        document.getElementById('generate-report-btn').addEventListener('click', function() {
+            const displayColumnsSelect = document.getElementById('display-columns-select');
+            const selectedDisplayIndices = Array.from(displayColumnsSelect.selectedOptions).map(opt => parseInt(opt.value));
+            
+            const avgColumn1Index = parseInt(document.getElementById('avg-column1-select').value);
+            const avgColumn2Index = parseInt(document.getElementById('avg-column2-select').value);
+
+            const conditions = [
+                {
+                    min: parseFloat(document.getElementById('min-value1').value),
+                    max: parseFloat(document.getElementById('max-value1').value),
+                    text: document.getElementById('conditional-text1').value
+                },
+                {
+                    min: parseFloat(document.getElementById('min-value2').value),
+                    max: parseFloat(document.getElementById('max-value2').value),
+                    text: document.getElementById('conditional-text2').value
+                },
+                {
+                    min: parseFloat(document.getElementById('min-value3').value),
+                    max: parseFloat(document.getElementById('max-value3').value),
+                    text: document.getElementById('conditional-text3').value
+                }
+            ];
+
+            if (selectedDisplayIndices.length === 0) {
+                alert('Por favor, selecciona al menos una columna para mostrar.');
+                return;
+            }
+
+            const reportOutput = document.getElementById('report-output');
+            reportOutput.innerHTML = ''; 
+            
+            const headers = excelData[0];
+            const dataRows = excelData.slice(1);
+
+            dataRows.forEach((row, rowIndex) => {
+                const value1 = parseFloat(row[avgColumn1Index]);
+                const value2 = parseFloat(row[avgColumn2Index]);
+                
+                let average = NaN;
+                if (!isNaN(value1) && !isNaN(value2)) {
+                    average = (value1 + value2) / 2;
+                }
+
+                let conditionalText = '';
+                let textColor = '';
+                
+                if (!isNaN(average)) {
+                    for (const condition of conditions) {
+                        if (average >= condition.min && average <= condition.max) {
+                            conditionalText = condition.text;
+                            break;
+                        }
+                    }
+                }
+
+                const reportRow = document.createElement('div');
+                reportRow.className = 'report-row';
+                
+                let rowContent = `<h4>Reporte de Fila ${rowIndex + 1}</h4>`;
+                
+                selectedDisplayIndices.forEach(index => {
+                    const cellValue = row[index] !== undefined ? row[index] : '';
+                    rowContent += `<p><strong>${headers[index]}:</strong> ${cellValue}</p>`;
+                });
+
+                if (!isNaN(average)) {
+                    rowContent += `<p><strong>Promedio de ${headers[avgColumn1Index]} y ${headers[avgColumn2Index]}:</strong> ${average.toFixed(2)}</p>`;
+                }
+
+                if (conditionalText) {
+                    rowContent += `<p class="conditional-text">${conditionalText}</p>`;
+                }
+
+                reportRow.innerHTML = rowContent;
+                reportOutput.appendChild(reportRow);
+            });
+
+            document.getElementById('report-output-section').style.display = 'block';
+        });
+    </script>
+
+
+<!-- Dame el codigo web para subir un excel , pueda selecionar varias celdas,agregue el promedio de dos celdas y que arroje un 3 textos con base en el promedio de esas dos celdas y valores entre un numero y otro, emita reporte por fila e incluya todas las filas sin excluir ninguna -->
+
+</body>
+</html>

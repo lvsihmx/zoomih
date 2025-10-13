@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Mostrar información al hacer clic en imagen</title>
+</head>
+<body><pre>
+  Tu texto aquí, con espacios, saltos de línea y tabulaciones.
+  Este texto se mostrará tal cual se ve en el código fuente.
+
+
+</pre>
+
+<div style="text-align: center;">
+<a href="#" onclick="mostrarInformacion('ˈɒr.ɪndʒ22')">
+  <img src="orange.jpg" alt="Imagen 1" style="display: inline-block; width: 200px; height: 150px; margin-right: 10px;">  </a>
+   
+
+
+<a href="#" onclick="mostrarInformacion('cactus22')">
+  <img src="cactus.jpg" alt="cactus.jpg" style="display: inline-block; width: 200px; height: 150px; margin-right: 10px;"></a>
+<div id="infoContainer" style="display: none;">
+    <p id="infoText"></p>
+  </div>
+
+
+  <img src="imagen3.jpg" alt="Imagen 3" style="display: inline-block; width: 200px; height: 150px;"> </a>
+
+
+<div id="infoContainer" style="display: none;">
+    <p id="infoText"></p>
+  </div>
+
+
+
+
+
+</div>
+  <script>
+    function mostrarInformacion(descripcion) {
+      document.getElementById("infoText").innerText = descripcion;
+      document.getElementById("infoContainer").style.display = "block";
+    }
+  </script>
+
+
+</body>
+</html>

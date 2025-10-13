@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Palabra Aleatoria</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 50px;
+    }
+
+    #palabra {
+      font-size: 2em;
+      margin-bottom: 20px;
+      color: #2c3e50;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="palabra">Haz clic para mostrar una palabra</div>
+  <button onclick="mostrarPalabraAleatoria()">Nueva Palabra</button>
+
+  <script>
+    const palabras = ["Sol", "Luna", "Estrella", "Montaña", "Río", "Bosque", "Mar", "Nube", "Viento", "Fuego"];
+
+    function mostrarPalabraAleatoria() {
+      const indiceAleatorio = Math.floor(Math.random() * palabras.length);
+      const palabra = palabras[indiceAleatorio];
+      document.getElementById("palabra").textContent = palabra;
+    }
+
+    // Mostrar una palabra aleatoria al cargar la página
+    window.onload = mostrarPalabraAleatoria;
+  </script>
+
+</body>
+</html>

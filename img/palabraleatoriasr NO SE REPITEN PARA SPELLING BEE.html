@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Palabras Aleatorias Sin Repetición</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 50px;
+    }
+
+    #palabra {
+      font-size: 2em;
+      margin-bottom: 20px;
+      color: #34495e;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+
+    #fin {
+      color: red;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="palabra">Haz clic para mostrar una palabra</div>
+  <button onclick="mostrarPalabraAleatoria()">Nueva Palabra</button>
+  <div id="fin"></div>
+
+  <script>
+    let palabras = ["leo", "laura", "Elvis", "yoshi", "yuki"];
+
+    function mostrarPalabraAleatoria() {
+      if (palabras.length === 0) {
+        document.getElementById("palabra").textContent = "Ya no hay más palabras.";
+        document.getElementById("fin").textContent = "Todas las palabras han sido mostradas.";
+        return;
+      }
+
+      const indiceAleatorio = Math.floor(Math.random() * palabras.length);
+      const palabra = palabras.splice(indiceAleatorio, 1)[0]; // Quitar palabra del array
+      document.getElementById("palabra").textContent = palabra;
+    }
+
+    // Mostrar una palabra al cargar la página
+    window.onload = mostrarPalabraAleatoria;
+  </script>
+
+</body>
+</html>

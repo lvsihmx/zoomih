@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Ejemplo de Variable</title>
+  <script>
+    function calcular() {
+      // Obtener valor del input
+      let valor = document.getElementById("entrada").value;
+
+      // Convertirlo a número
+      let numero = parseFloat(valor);
+
+      // Si no es número, avisamos
+      if (isNaN(numero)) {
+        document.getElementById("resultado").innerText = "Por favor, introduce un número válido.";
+        return;
+      }
+
+      // Calcular el doble
+      let resultado = numero * 2;
+
+      // Mostrar el resultado
+      document.getElementById("resultado").innerText = "El doble es: " + resultado;
+    }
+  </script>
+</head>
+<body>
+  <h1>Calcular el doble</h1>
+  <input type="text" id="entrada" placeholder="Introduce un número">
+  <button onclick="calcular()">Calcular</button>
+  <p id="resultado"></p>
+</body>
+</html>
+Esto es solo un ejemplo con multiplicar ×2, pero lo puedes cambiar por cualquier fórmula o lógica que necesites.
+
+👉 ¿Quieres que el HTML haga un cálculo específico (por ejemplo, sumar, restar, convertir texto) o lo dejamos genérico para que lo adaptes?
+
+
+
+
+
+
+
+
+Tú dijiste:
+crear html que al meter un variable te de un valor establecido
+
+
+ChatGPT Plus
+¡Perfecto! Ahora lo pillo mejor 👌.
+Quieres que el HTML reciba un valor (variable de entrada) y que te devuelva un valor ya definido (no un cálculo, sino una correspondencia fija).
+
+Eso se hace con una especie de "tabla de correspondencias".
+Aquí te dejo un ejemplo sencillo: si introduces una palabra clave, te devuelve un valor predefinido.
+
+html
+Copiar
+Editar
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Valores establecidos</title>
+  <script>
+    function buscarValor() {
+      let entrada = document.getElementById("entrada").value.toLowerCase(); // texto en minúsculas
+      
+      // Diccionario de valores fijos
+      let valores = {
+        "a": "Manzana",
+        "b": "Banana",
+        "c": "Cereza",
+        "1": "Uno",
+        "2": "Dos",
+        "3": "Tres"
+      };
+
+      // Buscar valor
+      let resultado = valores[entrada];
+
+      // Mostrar resultado
+      if (resultado) {
+        document.getElementById("resultado").innerText = "Resultado: " + resultado;
+      } else {
+        document.getElementById("resultado").innerText = "No hay valor definido para: " + entrada;
+      }
+    }
+  </script>
+</head>
+<body>
+  <h1>Asignar valores establecidos</h1>
+  <input type="text" id="entrada" placeholder="Introduce una variable">
+  <button onclick="buscarValor()">Buscar valor</button>
+  <p id="resultado"></p>
+</body>
+</html>

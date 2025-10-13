@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Examen Aleatorio</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f9;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+    }
+    .pregunta {
+      margin: 20px 0;
+      padding: 15px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .opcion {
+      margin: 5px 0;
+    }
+    button {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 20px;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #357ab8;
+    }
+    .resultado {
+      text-align: center;
+      font-size: 1.2em;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Examen Aleatorio (15 de 30 preguntas)</h2>
+  <form id="examen"></form>
+  <button type="button" onclick="revisar()">Revisar Examen</button>
+  <div id="resultado" class="resultado"></div>
+
+  <script>
+    // 30 preguntas de ejemplo
+    const bancoPreguntas = [
+      { pregunta: "¿Capital de Francia?", opciones: ["París", "Madrid", "Roma"], respuesta: "París" },
+      { pregunta: "¿Resultado de 5 + 7?", opciones: ["10", "11", "12"], respuesta: "12" },
+      { pregunta: "¿Planeta rojo?", opciones: ["Marte", "Venus", "Júpiter"], respuesta: "Marte" },
+      { pregunta: "¿Quién pintó la Mona Lisa?", opciones: ["Picasso", "Da Vinci", "Van Gogh"], respuesta: "Da Vinci" },
+      { pregunta: "¿Capital de Japón?", opciones: ["Tokio", "Pekín", "Seúl"], respuesta: "Tokio" },
+      { pregunta: "¿Número de lados de un hexágono?", opciones: ["5", "6", "7"], respuesta: "6" },
+      { pregunta: "¿Animal más rápido en tierra?", opciones: ["León", "Guepardo", "Tigre"], respuesta: "Guepardo" },
+      { pregunta: "¿Lengua oficial de Brasil?", opciones: ["Español", "Portugués", "Inglés"], respuesta: "Portugués" },
+      { pregunta: "¿Quién formuló la teoría de la relatividad?", opciones: ["Newton", "Einstein", "Tesla"], respuesta: "Einstein" },
+      { pregunta: "¿Metal líquido a temperatura ambiente?", opciones: ["Mercurio", "Aluminio", "Plomo"], respuesta: "Mercurio" },
+      { pregunta: "¿Capital de Alemania?", opciones: ["Berlín", "Viena", "Praga"], respuesta: "Berlín" },
+      { pregunta: "¿Año de llegada del hombre a la Luna?", opciones: ["1965", "1969", "1971"], respuesta: "1969" },
+      { pregunta: "¿Cuál es el océano más grande?", opciones: ["Atlántico", "Índico", "Pacífico"], respuesta: "Pacífico" },
+      { pregunta: "¿Primer presidente de EE.UU.?", opciones: ["Lincoln", "Washington", "Jefferson"], respuesta: "Washington" },
+      { pregunta: "¿Número atómico del oxígeno?", opciones: ["6", "8", "10"], respuesta: "8" },
+      { pregunta: "¿Capital de Italia?", opciones: ["Roma", "Milán", "Venecia"], respuesta: "Roma" },
+      { pregunta: "¿Creador de Microsoft?", opciones: ["Jobs", "Musk", "Gates"], respuesta: "Gates" },
+      { pregunta: "¿País de la Torre Eiffel?", opciones: ["Italia", "Francia", "España"], respuesta: "Francia" },
+      { pregunta: "¿Cuántos minutos tiene una hora?", opciones: ["60", "100", "120"], respuesta: "60" },
+      { pregunta: "¿Quién escribió 'El Quijote'?", opciones: ["Cervantes", "Lope", "Quevedo"], respuesta: "Cervantes" },
+      { pregunta: "¿Capital de Argentina?", opciones: ["Buenos Aires", "Montevideo", "Lima"], respuesta: "Buenos Aires" },
+      { pregunta: "¿Gas más abundante en la atmósfera?", opciones: ["Oxígeno", "Nitrógeno", "CO2"], respuesta: "Nitrógeno" },
+      { pregunta: "¿Cuántos continentes hay?", opciones: ["5", "6", "7"], respuesta: "7" },
+      { pregunta: "¿Símbolo químico del oro?", opciones: ["Au", "Ag", "Pt"], respuesta: "Au" },
+      { pregunta: "¿País de los faraones?", opciones: ["Grecia", "Egipto", "Turquía"], respuesta: "Egipto" },
+      { pregunta: "¿Capital de Rusia?", opciones: ["San Petersburgo", "Moscú", "Kiev"], respuesta: "Moscú" },
+      { pregunta: "¿Cuántos días tiene un año bisiesto?", opciones: ["365", "366", "364"], respuesta: "366" },
+      { pregunta: "¿Quién descubrió América?", opciones: ["Colón", "Magallanes", "Pizarro"], respuesta: "Colón" },
+      { pregunta: "¿Planeta más grande?", opciones: ["Saturno", "Júpiter", "Neptuno"], respuesta: "Júpiter" },
+      { pregunta: "¿Capital de Canadá?", opciones: ["Toronto", "Vancouver", "Ottawa"], respuesta: "Ottawa" }
+    ];
+
+    // Mezclar preguntas y seleccionar 15
+    function obtenerPreguntasAleatorias() {
+      return bancoPreguntas
+        .sort(() => Math.random() - 0.5) // Mezclar
+        .slice(0, 15); // Tomar 15
+    }
+
+    // Mostrar preguntas
+    const examenDiv = document.getElementById("examen");
+    const preguntasSeleccionadas = obtenerPreguntasAleatorias();
+
+    preguntasSeleccionadas.forEach((p, i) => {
+      const contenedor = document.createElement("div");
+      contenedor.className = "pregunta";
+
+      let html = `<p><strong>${i + 1}.</strong> ${p.pregunta}</p>`;
+      p.opciones.forEach(op => {
+        html += `
+          <div class="opcion">
+            <label>
+              <input type="radio" name="preg${i}" value="${op}">
+              ${op}
+            </label>
+          </div>`;
+      });
+
+      contenedor.innerHTML = html;
+      examenDiv.appendChild(contenedor);
+    });
+
+    // Revisar respuestas
+    function revisar() {
+      let correctas = 0;
+      preguntasSeleccionadas.forEach((p, i) => {
+        const seleccionada = document.querySelector(`input[name="preg${i}"]:checked`);
+        if (seleccionada && seleccionada.value === p.respuesta) {
+          correctas++;
+        }
+      });
+      document.getElementById("resultado").textContent =
+        `Tu puntuación: ${correctas} / ${preguntasSeleccionadas.length}`;
+    }
+  </script>
+
+</body>
+</html>

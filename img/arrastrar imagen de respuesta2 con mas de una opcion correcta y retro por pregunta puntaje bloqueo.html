@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cuestionario Drag & Drop</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+    }
+    .question-container {
+      margin-bottom: 40px;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+    .question {
+      margin-bottom: 15px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .options {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .options img {
+      width: 100px;
+      cursor: grab;
+      border-radius: 8px;
+      border: 2px solid transparent;
+    }
+    .dropzone {
+      width: 100%;
+      min-height: 150px;
+      border: 2px dashed #555;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-start;
+      background: #fafafa;
+    }
+    .dropzone.over {
+      background-color: #eef7ff;
+      border-color: #007BFF;
+    }
+    .dropzone img {
+      width: 80px;
+      border-radius: 6px;
+      border: 2px solid #ccc;
+    }
+    button {
+      margin-top: 15px;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 6px;
+      background-color: #007BFF;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:disabled {
+      background-color: #999;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
+      background-color: #0056b3;
+    }
+    .result {
+      margin-top: 10px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    #final-score {
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Pregunta 1 -->
+  <div class="question-container">
+    <div class="question">1. ¿Cuáles de estos animales son mamíferos?</div>
+    <div class="options">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/7/73/Lion_waiting_in_Namibia.jpg" 
+           alt="León" draggable="true" data-correct="true">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/Turtle_in_Hawaii.JPG" 
+           alt="Tortuga" draggable="true" data-correct="false">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Domestic_cat_cropped.jpg" 
+           alt="Gato" draggable="true" data-correct="true">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/e/e7/Frog_on_palm_frond.jpg" 
+           alt="Rana" draggable="true" data-correct="false">
+    </div>
+    <div class="dropzone">Arrastra aquí tus respuestas</div>
+    <button class="check-btn">Comprobar</button>
+    <p class="result"></p>
+  </div>
+
+  <!-- Pregunta 2 -->
+  <div class="question-container">
+    <div class="question">2. ¿Cuáles de estas frutas son cítricos?</div>
+    <div class="options">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/c/c4/Orange-Fruit-Pieces.jpg" 
+           alt="Naranja" draggable="true" data-correct="true">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/4/47/Banana-Single.jpg" 
+           alt="Plátano" draggable="true" data-correct="false">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/Lemon.jpg" 
+           alt="Limón" draggable="true" data-correct="true">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/1/15/Red_Apple.jpg" 
+           alt="Manzana" draggable="true" data-correct="false">
+<p><b>${p.texto}</b> | ⏱ <span id="cronometro-${p.id}" class="cronometro">00:00</span></p>
+    </div>
+    <div class="dropzone">Arrastra aquí tus respuestas</div>
+    <button class="check-btn">Comprobar</button>
+    <p class="result"></p>
+  </div>
+
+  <!-- Botón Final -->
+  <div style="text-align: center;">
+    <button id="check-all">Comprobar todo el cuestionario</button>
+    <p id="final-score"></p>
+  </div>
+
+  <script>
+    // Hacer que las imágenes se puedan arrastrar
+    document.querySelectorAll(".options img").forEach(img => {
+      img.addEventListener("dragstart", e => {
+        e.dataTransfer.setData("alt", e.target.alt);
+        e.dataTransfer.setData("src", e.target.src);
+        e.dataTransfer.setData("correct", e.target.dataset.correct);
+      });
+    });
+
+    // Configurar zonas de respuesta
+    document.querySelectorAll(".dropzone").forEach(zone => {
+      zone.addEventListener("dragover", e => {
+        if (zone.dataset.locked === "true") return; // bloqueada
+        e.preventDefault();
+        zone.classList.add("over");
+      });
+
+      zone.addEventListener("dragleave", () => {
+        zone.classList.remove("over");
+      });
+
+      zone.addEventListener("drop", e => {
+        if (zone.dataset.locked === "true") return; // bloqueada
+        e.preventDefault();
+        zone.classList.remove("over");
+
+        const answer = e.dataTransfer.getData("alt");
+        const src = e.dataTransfer.getData("src");
+        const correct = e.dataTransfer.getData("correct");
+
+        // Evitar duplicados
+        if ([...zone.querySelectorAll("img")].some(img => img.alt === answer)) {
+          return;
+        }
+
+        // Insertar imagen en la zona de respuesta
+        const newImg = document.createElement("img");
+        newImg.src = src;
+        newImg.alt = answer;
+        newImg.dataset.correct = correct;
+        zone.appendChild(newImg);
+      });
+    });
+
+    // Función para comprobar una pregunta
+    function checkQuestion(container, lock = true) {
+      const zone = container.querySelector(".dropzone");
+      const result = container.querySelector(".result");
+      const btn = container.querySelector(".check-btn");
+      const selected = [...zone.querySelectorAll("img")];
+      const options = [...container.querySelectorAll(".options img")];
+
+      if (selected.length === 0) {
+        result.textContent = "⚠️ No has seleccionado ninguna respuesta.";
+        result.style.color = "orange";
+        return false;
+      }
+
+      const totalCorrect = options.filter(img => img.dataset.correct === "true").length;
+      const correctSelected = selected.filter(img => img.dataset.correct === "true").length;
+      const wrongSelected = selected.filter(img => img.dataset.correct === "false").length;
+
+      // Colorear respuestas seleccionadas
+      selected.forEach(img => {
+        if (img.dataset.correct === "true") {
+          img.style.border = "3px solid green";
+        } else {
+          img.style.border = "3px solid red";
+        }
+      });
+
+      // Mostrar las correctas que faltan
+      const selectedAlts = selected.map(img => img.alt);
+      const missingCorrect = options.filter(img => img.dataset.correct === "true" && !selectedAlts.includes(img.alt));
+      missingCorrect.forEach(img => {
+        const clone = document.createElement("img");
+        clone.src = img.src;
+        clone.alt = img.alt;
+        clone.style.border = "3px solid green";
+        zone.appendChild(clone);
+      });
+
+      // Mensaje final
+      if (correctSelected === totalCorrect && wrongSelected === 0) {
+        result.textContent = `✅ Perfecto, todas las respuestas correctas (${correctSelected}/${totalCorrect}).`;
+        result.style.color = "green";
+      } else {
+        result.textContent = `❌ Tienes ${correctSelected} correctas de ${totalCorrect} y ${wrongSelected} incorrecta(s).`;
+        result.style.color = "red";
+      }
+
+      if (lock) {
+        zone.dataset.locked = "true"; // bloquear dropzone
+        btn.disabled = true;         // desactivar botón
+      }
+
+      return correctSelected === totalCorrect && wrongSelected === 0;
+    }
+
+    // Botón de comprobación por pregunta
+    document.querySelectorAll(".check-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const container = btn.closest(".question-container");
+        checkQuestion(container);
+      });
+    });
+
+    // Botón final para comprobar todo el cuestionario
+    document.getElementById("check-all").addEventListener("click", () => {
+      const containers = document.querySelectorAll(".question-container");
+      let score = 0;
+
+      containers.forEach(container => {
+        const correct = checkQuestion(container);
+        if (correct) score++;
+      });
+
+      const total = containers.length;
+      const percentage = Math.round((score / total) * 100);
+
+      document.getElementById("final-score").textContent =
+        `🎯 Tu puntuación final: ${score} de ${total} preguntas correctas (${percentage}%).`;
+
+      // Bloquear todo el cuestionario
+      containers.forEach(c => {
+        c.querySelector(".dropzone").dataset.locked = "true";
+        c.querySelector(".check-btn").disabled = true;
+      });
+      document.getElementById("check-all").disabled = true;
+    });
+  </script>
+</body>
+</html>
