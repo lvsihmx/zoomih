@@ -136,13 +136,15 @@
     <script>
         let excelData = [];
         
-        // Rangos y textos fijos para el promedio
+       // Rangos y textos fijos para el promedio
         const fixedAvgConditions = [
             { min: 0, max: 16.9, text: 'NOT READY' },
             { min: 17, max: 19.9, text: 'STARTERS' },
             { min: 20, max: 22.9, text: 'MOVERS OR FLYERS WITH PRACTISE' },
             { min: 23, max: 38, text: 'READY FOR FLYERS, LEVEL A2' }
         ];
+
+
 
         // Función para manejar la carga del archivo
         document.getElementById('upload-form').addEventListener('submit', function(e) {
@@ -258,4 +260,5 @@
         });
     </script>
 </body>
+
 </html>
