@@ -88,10 +88,8 @@
         }
         .conditional-text {
             font-weight: bold;
-            color: #dc3545;
         }
-        .promedio-value {
-            font-weight: bold;
+        .conditional-text.promedio {
             color: #28a745;
         }
     </style>
@@ -118,17 +116,11 @@
             </div>
             
             <div class="form-group">
-                <h3>Opciones de Promedio</h3>
+                <h3>Opciones para Promedio</h3>
                 <label for="avg-column1-select">Columna 1 para calcular el promedio:</label>
                 <select id="avg-column1-select"></select>
                 <label for="avg-column2-select">Columna 2 para calcular el promedio:</label>
                 <select id="avg-column2-select"></select>
-            </div>
-            
-            <div class="form-group">
-                <h3>Opciones para Celda Individual (Textos Fijos)</h3>
-                <label for="single-column-select">Columna para textos condicionales:</label>
-                <select id="single-column-select"></select>
             </div>
 
             <button id="generate-report-btn">Generar Reporte</button>
@@ -144,7 +136,7 @@
     <script>
         let excelData = [];
         
-        // Rangos y textos fijos para la celda individual (13)
+       // Rangos y textos fijos para la celda individual (13)
         const fixedSingleConditions = [
             { min: 0, max: 80, text: 'NOT REPORTED IN MAIN SUITE EXAM' },
             { min: 80, max: 88.9, text: 'PRE A1 LOW' },
@@ -168,6 +160,8 @@
 
             { min: 201, max: Infinity, text: 'C2' }
         ];
+
+
 
         // Función para manejar la carga del archivo
         document.getElementById('upload-form').addEventListener('submit', function(e) {
@@ -195,12 +189,10 @@
                 const displaySelect = document.getElementById('display-columns-select');
                 const avg1Select = document.getElementById('avg-column1-select');
                 const avg2Select = document.getElementById('avg-column2-select');
-                const singleSelect = document.getElementById('single-column-select');
                 
                 displaySelect.innerHTML = '';
                 avg1Select.innerHTML = '';
                 avg2Select.innerHTML = '';
-                singleSelect.innerHTML = '';
 
                 headers.forEach((header, index) => {
                     const optionDisplay = document.createElement('option');
@@ -213,9 +205,6 @@
 
                     const optionAvg2 = optionDisplay.cloneNode(true);
                     avg2Select.appendChild(optionAvg2);
-
-                    const optionSingle = optionDisplay.cloneNode(true);
-                    singleSelect.appendChild(optionSingle);
                 });
 
                 document.getElementById('options-section').style.display = 'block';
@@ -230,7 +219,6 @@
             
             const avgColumn1Index = parseInt(document.getElementById('avg-column1-select').value);
             const avgColumn2Index = parseInt(document.getElementById('avg-column2-select').value);
-            const singleColumnIndex = parseInt(document.getElementById('single-column-select').value);
 
             if (selectedDisplayIndices.length === 0) {
                 alert('Por favor, selecciona al menos una columna para mostrar.');
@@ -251,19 +239,18 @@
                 if (!isNaN(value1) && !isNaN(value2)) {
                     average = (value1 + value2) / 2;
                 }
-                
-                // Obtener texto condicional de la celda individual (fijos)
-                const singleValue = parseFloat(row[singleColumnIndex]);
-                let singleConditionalText = '';
-                if (!isNaN(singleValue)) {
-                    for (const condition of fixedSingleConditions) {
-                        if (singleValue >= condition.min && singleValue <= condition.max) {
-                            singleConditionalText = condition.text;
+
+                // Obtener texto condicional del promedio (fijo)
+                let avgConditionalText = '';
+                if (!isNaN(average)) {
+                    for (const condition of fixedAvgConditions) {
+                        if (average >= condition.min && average <= condition.max) {
+                            avgConditionalText = condition.text;
                             break;
                         }
                     }
                 }
-
+                
                 const reportRow = document.createElement('div');
                 reportRow.className = 'report-row';
                 
@@ -275,13 +262,13 @@
                 });
 
                 if (!isNaN(average)) {
-                    rowContent += `<p class="promedio-value"><strong>Promedio de ${headers[avgColumn1Index]} y ${headers[avgColumn2Index]}:</strong> ${average.toFixed(2)}</p>`;
+                    rowContent += `<p><strong>Promedio de ${headers[avgColumn1Index]} y ${headers[avgColumn2Index]}:</strong> ${average.toFixed(2)}</p>`;
                 }
                 
-                if (singleConditionalText) {
-                    rowContent += `<p class="conditional-text">Nota (${headers[singleColumnIndex]}): ${singleConditionalText}</p>`;
+                if (avgConditionalText) {
+                    rowContent += `<p class="conditional-text promedio">Nota (Promedio): ${avgConditionalText}</p>`;
                 }
-
+                
                 reportRow.innerHTML = rowContent;
                 reportOutput.appendChild(reportRow);
             });
@@ -290,4 +277,5 @@
         });
     </script>
 </body>
+
 </html>
