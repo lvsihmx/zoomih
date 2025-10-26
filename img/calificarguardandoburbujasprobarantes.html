@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMR completo con número de candidato preciso</title>
+<style>
+body{font-family:Arial,sans-serif;margin:20px;}
+canvas{border:1px solid #ccc;max-width:100%;margin-top:10px;cursor:crosshair;}
+button,input,textarea{margin-top:10px;display:block;}
+.controls{margin-top:10px;}
+</style>
+</head>
+<body>
+<h2>OMR manual con número de candidato preciso</h2>
+
+<label>Hojas en blanco (imágenes): <input type="file" id="blankImg" accept="image/*" multiple></label>
+<label>Hojas respondidas (imágenes): <input type="file" id="filledImg" accept="image/*" multiple></label>
+<label>Letra correcta para cada burbuja (A-J): <input type="text" id="correctLetter" maxlength="1" style="width:40px" value="A"></label>
+<label>Cargar burbujas guardadas (JSON): <input type="file" id="loadBubbles" accept=".json"></label>
+
+<div class="controls">
+<button id="prevBlank">← Hoja en blanco anterior</button>
+<button id="nextBlank">Hoja en blanco siguiente →</button>
+<button id="prevFilled">← Hoja respondida anterior</button>
+<button id="nextFilled">Hoja respondida siguiente →</button>
+<button id="defineCandidateArea">Definir área de candidato</button>
+</div>
+
+<button id="resetBubbles">Reiniciar burbujas</button>
+<button id="saveBubbles">Guardar burbujas</button>
+<button id="grade">Calificar todas</button>
+<button id="downloadCsv">Descargar CSV</button>
+<button id="downloadAllImages">Descargar todas las hojas calificadas</button>
+
+<pre id="log">Clic sobre la hoja en blanco para marcar burbujas correctas.</pre>
+<canvas id="canvas"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<script>
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+
+let blankImages=[];
+let filledImages=[];
+let currentBlank=0;
+let currentFilled=0;
+let bubbles=[];
+let resultsPerSheet=[];
+let candidateNumbers=[];
+
+let definingArea=false;
+let candidateArea=null;
+let startX, startY;
+
+function drawCanvas(image, showResults=false, candidateNumber=''){
+    if(!image) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(image,0,0);
+    ctx.lineWidth=2;
+    ctx.font='12px Arial';
+
+    if(candidateNumber){
+        ctx.fillStyle='red';
+        ctx.fillText("Candidato: "+candidateNumber, 10, 20);
+        const sheet = resultsPerSheet[currentFilled];
+        if(sheet) ctx.fillText(`Aciertos: ${sheet.totalAciertos}/${bubbles.length}`, 10, 40);
+    }
+
+    if(candidateArea){
+        ctx.strokeStyle='red';
+        ctx.lineWidth=2;
+        ctx.strokeRect(candidateArea.x,candidateArea.y,candidateArea.width,candidateArea.height);
+    }
+
+    if(showResults && resultsPerSheet[currentFilled]){
+        resultsPerSheet[currentFilled].results.forEach((r,idx)=>{
+            ctx.beginPath();
+            ctx.arc(bubbles[idx].x,bubbles[idx].y,6,0,Math.PI*2);
+            ctx.strokeStyle=r.acierto?'green':'red';
+            ctx.stroke();
+            ctx.fillStyle='black';
+            ctx.fillText(r.correct, bubbles[idx].x-4, bubbles[idx].y-10);
+            ctx.fillText(r.question, bubbles[idx].x-4, bubbles[idx].y+24);
+        });
+    } else {
+        bubbles.forEach((b,idx)=>{
+            ctx.strokeStyle='blue';
+            ctx.beginPath(); ctx.arc(b.x,b.y,6,0,Math.PI*2); ctx.stroke();
+            ctx.fillStyle='black';
+            ctx.fillText(b.correctLetter.toUpperCase(), b.x-4, b.y-10);
+            ctx.fillText(idx+1, b.x-4, b.y+24);
+        });
+    }
+}
+
+// --- Cargar hojas ---
+document.getElementById('blankImg').addEventListener('change', e=>{
+    blankImages=[];
+    const files=Array.from(e.target.files);
+    files.forEach(file=>{
+        const img=new Image();
+        img.onload=()=>{
+            blankImages.push(img);
+            if(blankImages.length===1){
+                currentBlank=0;
+                canvas.width=img.width; canvas.height=img.height;
+                drawCanvas(img);
+            }
+        };
+        img.src=URL.createObjectURL(file);
+    });
+    document.getElementById('log').textContent=`Hojas en blanco cargadas: ${files.length}`;
+});
+
+document.getElementById('filledImg').addEventListener('change', e=>{
+    filledImages=[];
+    candidateNumbers=[];
+    const files=Array.from(e.target.files);
+    files.forEach(file=>{
+        const img=new Image();
+        img.onload=()=>{
+            filledImages.push(img);
+            candidateNumbers.push('');
+            if(filledImages.length===1){
+                currentFilled=0;
+                drawCanvas(blankImages[currentBlank] || null);
+            }
+        };
+        img.src=URL.createObjectURL(file);
+    });
+    document.getElementById('log').textContent=`Hojas respondidas cargadas: ${files.length}`;
+});
+
+// --- Navegación ---
+document.getElementById('prevBlank').addEventListener('click', ()=>{
+    if(blankImages.length===0) return;
+    currentBlank=(currentBlank-1+blankImages.length)%blankImages.length;
+    canvas.width=blankImages[currentBlank].width;
+    canvas.height=blankImages[currentBlank].height;
+    drawCanvas(blankImages[currentBlank]);
+    document.getElementById('log').textContent=`Hoja en blanco ${currentBlank+1}/${blankImages.length}`;
+});
+document.getElementById('nextBlank').addEventListener('click', ()=>{
+    if(blankImages.length===0) return;
+    currentBlank=(currentBlank+1)%blankImages.length;
+    canvas.width=blankImages[currentBlank].width;
+    canvas.height=blankImages[currentBlank].height;
+    drawCanvas(blankImages[currentBlank]);
+    document.getElementById('log').textContent=`Hoja en blanco ${currentBlank+1}/${blankImages.length}`;
+});
+document.getElementById('prevFilled').addEventListener('click', ()=>{
+    if(filledImages.length===0) return;
+    currentFilled=(currentFilled-1+filledImages.length)%filledImages.length;
+    canvas.width=filledImages[currentFilled].width;
+    canvas.height=filledImages[currentFilled].height;
+    drawCanvas(filledImages[currentFilled], true, candidateNumbers[currentFilled]);
+    document.getElementById('log').textContent=`Hoja respondida ${currentFilled+1}/${filledImages.length}`;
+});
+document.getElementById('nextFilled').addEventListener('click', ()=>{
+    if(filledImages.length===0) return;
+    currentFilled=(currentFilled+1)%filledImages.length;
+    canvas.width=filledImages[currentFilled].width;
+    canvas.height=filledImages[currentFilled].height;
+    drawCanvas(filledImages[currentFilled], true, candidateNumbers[currentFilled]);
+    document.getElementById('log').textContent=`Hoja respondida ${currentFilled+1}/${filledImages.length}`;
+});
+
+// --- Definir área de candidato ---
+document.getElementById('defineCandidateArea').addEventListener('click', ()=>{
+    if(blankImages.length===0 && filledImages.length===0){alert('Carga alguna hoja primero'); return;}
+    definingArea = true;
+    alert('Arrastra sobre el canvas el área donde están las burbujas del candidato');
+});
+canvas.addEventListener('mousedown', e=>{
+    if(!definingArea) return;
+    const rect=canvas.getBoundingClientRect();
+    startX=e.clientX-rect.left;
+    startY=e.clientY-rect.top;
+});
+canvas.addEventListener('mouseup', e=>{
+    if(!definingArea) return;
+    const rect=canvas.getBoundingClientRect();
+    const endX=e.clientX-rect.left;
+    const endY=e.clientY-rect.top;
+
+    candidateArea = {
+        x: Math.min(startX,endX),
+        y: Math.min(startY,endY),
+        width: Math.abs(endX-startX),
+        height: Math.abs(endY-startY)
+    };
+    definingArea = false;
+    drawCanvas(filledImages[currentFilled] || blankImages[currentBlank] || null);
+    alert('Área de candidato definida.');
+});
+
+// --- Agregar burbuja correcta ---
+canvas.addEventListener('click', e=>{
+    if(blankImages.length===0 || definingArea) return;
+    const rect=canvas.getBoundingClientRect();
+    const x=e.clientX-rect.left;
+    const y=e.clientY-rect.top;
+    const letter=document.getElementById('correctLetter').value.toUpperCase();
+    bubbles.push({x,y,question:bubbles.length+1,correctLetter:letter});
+    drawCanvas(blankImages[currentBlank]);
+    document.getElementById('log').textContent=`Burbujas correctas: ${bubbles.length}`;
+});
+
+// --- Reiniciar burbujas ---
+document.getElementById('resetBubbles').addEventListener('click', ()=>{
+    bubbles=[];
+    drawCanvas(blankImages[currentBlank]);
+    document.getElementById('log').textContent='Burbujas reiniciadas.';
+});
+
+// --- Guardar burbujas ---
+document.getElementById('saveBubbles').addEventListener('click', ()=>{
+    if(bubbles.length===0){alert('No hay burbujas para guardar'); return;}
+    const dataStr = JSON.stringify(bubbles, null, 2);
+    const blob = new Blob([dataStr], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'burbujas.json';
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+// --- Cargar burbujas con previsualización ---
+document.getElementById('loadBubbles').addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+        try{
+            const loadedBubbles = JSON.parse(ev.target.result);
+            if(Array.isArray(loadedBubbles)){
+                bubbles = loadedBubbles;
+                // Previsualizar burbujas sobre la hoja en blanco actual
+                drawCanvas(blankImages[currentBlank] || filledImages[currentFilled] || null);
+                document.getElementById('log').textContent = `Burbujas cargadas: ${bubbles.length} (previsualización mostrada)`;
+            } else alert('Archivo JSON inválido');
+        } catch(err){
+            alert('Error al leer el JSON: '+err);
+        }
+    };
+    reader.readAsText(file);
+});
+
+// --- Detectar número de candidato preciso ---
+function detectarNumeroCandidatoPreciso(filledImg, candidateArea) {
+    if(!candidateArea) return '';
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = filledImg.width;
+    tmpCanvas.height = filledImg.height;
+    const tmpCtx = tmpCanvas.getContext('2d');
+    tmpCtx.drawImage(filledImg, 0, 0);
+
+    const filas = [
+        [1,2,3,4,5,6,7,8,9,0],
+        [1,2,3,4,5,6,7,8,9,0],
+        [1,2,3,4,5,6,7,8,9,0]
+    ];
+
+    const numero = [];
+    const rowHeight = candidateArea.height / 3;
+    const colWidth = candidateArea.width / 10; // 10 columnas
+
+    for(let col=0; col<10; col++){
+        let encontrado = false;
+        for(let row=0; row<3; row++){
+            const x = Math.round(candidateArea.x + col*colWidth + colWidth/2);
+            const y = Math.round(candidateArea.y + row*rowHeight + rowHeight/2);
+            const p = tmpCtx.getImageData(x,y,1,1).data;
+            const brillo = (p[0]+p[1]+p[2])/3;
+            if(brillo < 200){ 
+                numero.push(filas[row][col]);
+                encontrado = true;
+                break;
+            }
+        }
+        if(!encontrado) numero.push('-');
+    }
+    return numero.join('');
+}
+
+// --- Calificar ---
+document.getElementById('grade').addEventListener('click', ()=>{
+    if(filledImages.length===0){document.getElementById('log').textContent='Carga hojas respondidas'; return;}
+    if(!candidateArea){alert('Define primero el área del candidato'); return;}
+    resultsPerSheet=[];
+    candidateNumbers=[];
+
+    filledImages.forEach((filledImg,index)=>{
+        const numero = detectarNumeroCandidatoPreciso(filledImg, candidateArea);
+        candidateNumbers.push(numero);
+
+        const tmpCanvas=document.createElement('canvas');
+        tmpCanvas.width=filledImg.width; tmpCanvas.height=filledImg.height;
+        const tmpCtx=tmpCanvas.getContext('2d');
+        tmpCtx.drawImage(filledImg,0,0);
+        const results=[];
+        let totalAciertos = 0;
+
+        bubbles.forEach(b=>{
+            const radius=6;
+            let sum=0,count=0;
+            for(let dy=-radius;dy<=radius;dy++){
+                for(let dx=-radius;dx<=radius;dx++){
+                    let x=Math.round(b.x+dx), y=Math.round(b.y+dy);
+                    if(x<0||y<0||x>=filledImg.width||y>=filledImg.height) continue;
+                    const p=tmpCtx.getImageData(x,y,1,1).data;
+                    sum+=p[0]+p[1]+p[2]; count++;
+                }
+            }
+            let marked=sum/count<200;
+            results.push({question:b.question,correct:b.correctLetter,marked,acierto:marked});
+            if(marked) totalAciertos++;
+        });
+        resultsPerSheet.push({sheet:index+1, candidate:numero, results, totalAciertos});
+    });
+
+    drawCanvas(filledImages[currentFilled], true, candidateNumbers[currentFilled]);
+
+    let resumen = 'Calificación completada para todas las hojas:\n';
+    resultsPerSheet.forEach(sheet=>{
+        resumen += `Candidato ${sheet.candidate}: ${sheet.totalAciertos}/${bubbles.length} aciertos\n`;
+    });
+    document.getElementById('log').textContent = resumen;
+});
+
+// --- Descargar CSV ---
+document.getElementById('downloadCsv').addEventListener('click', ()=>{
+    if(resultsPerSheet.length===0){alert('Primero califica'); return;}
+    
+    let csv = 'RESUMEN DE CANDIDATOS\nCandidato,Total de aciertos\n';
+    resultsPerSheet.forEach(sheet=>{
+        csv += `${sheet.candidate},${sheet.totalAciertos}/${bubbles.length}\n`;
+    });
+
+    csv += '\nDETALLE POR PREGUNTA\nHoja,Candidato,Pregunta,Correcta,Marcada,Acertó\n';
+    resultsPerSheet.forEach(sheet=>{
+        sheet.results.forEach(r=>{
+            csv+=`${sheet.sheet},${sheet.candidate},${r.question},${r.correct},${r.marked?'Sí':'No'},${r.acierto?'Sí':'No'}\n`;
+        });
+        csv+=`${sheet.sheet},${sheet.candidate},TOTAL,, , ,${sheet.totalAciertos}\n`;
+    });
+
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); 
+    a.href = url; 
+    a.download = 'resultados.csv'; 
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+// --- Descargar todas las hojas calificadas ---
+document.getElementById('downloadAllImages').addEventListener('click', async ()=>{
+    if(resultsPerSheet.length===0){alert('Primero califica las hojas'); return;}
+    
+    const zip = new JSZip();
+    
+    for(let i=0; i<filledImages.length; i++){
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = filledImages[i].width;
+        tmpCanvas.height = filledImages[i].height;
+        const tmpCtx = tmpCanvas.getContext('2d');
+        tmpCtx.drawImage(filledImages[i], 0, 0);
+
+        // Dibujar resultados
+        resultsPerSheet[i].results.forEach((r,idx)=>{
+            tmpCtx.beginPath();
+            tmpCtx.arc(bubbles[idx].x,bubbles[idx].y,6,0,Math.PI*2);
+            tmpCtx.strokeStyle=r.acierto?'green':'red';
+            tmpCtx.stroke();
+            tmpCtx.fillStyle='black';
+            tmpCtx.fillText(r.correct, bubbles[idx].x-4, bubbles[idx].y-10);
+            tmpCtx.fillText(r.question, bubbles[idx].x-4, bubbles[idx].y+24);
+        });
+
+        tmpCtx.fillStyle='red';
+        tmpCtx.font='20px Arial';
+        tmpCtx.fillText(`Candidato: ${resultsPerSheet[i].candidate}`, 10, 30);
+        tmpCtx.fillText(`Aciertos: ${resultsPerSheet[i].totalAciertos}/${bubbles.length}`, 10, 60);
+
+        const dataURL = tmpCanvas.toDataURL('image/png');
+        const imgData = dataURL.split(',')[1];
+        zip.file(`Hoja_${i+1}_Candidato_${resultsPerSheet[i].candidate}.png`, imgData, {base64:true});
+    }
+
+    const content = await zip.generateAsync({type:"blob"});
+    saveAs(content, "Hojas_calificadas.zip");
+});
+</script>
+</body>
+</html>
