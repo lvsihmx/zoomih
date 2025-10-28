@@ -97,7 +97,8 @@
 
 <div id="drop-zone">
   📸 Haz clic o arrastra tus imágenes aquí
-  <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+  <!-- capture="environment" permite usar cámara trasera en móviles -->
+  <input type="file" id="fileInput" accept="image/*" capture="environment" multiple style="display:none">
 </div>
 
 <div id="thumbs"></div>
@@ -202,7 +203,7 @@ async function combineImages() {
     const imgObj = images[i];
     ctx.drawImage(imgObj.img, 0, y);
     y += imgObj.img.height;
-    updateProgress((i + 1) / images.length * 50); // 50% por combinar
+    updateProgress((i + 1) / images.length * 50);
   }
 
   // Comprimir si excede 3MB
@@ -219,7 +220,7 @@ async function combineImages() {
       tmp.getContext('2d').drawImage(previewCanvas, 0, 0, tmp.width, tmp.height);
       blob = await new Promise(res => tmp.toBlob(res, 'image/png'));
       size = blob.size / 1024 / 1024;
-      updateProgress(50 + (1 - scale) * 1000); // Simulación de progreso restante
+      updateProgress(50 + (1 - scale) * 1000);
     }
   }
 
