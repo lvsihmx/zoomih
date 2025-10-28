@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Combinar Imágenes — Vertical PNG (≤3 MB)</title>
+<style>
+:root{--panel:#fff;--accent:#007bff;--danger:#e74c3c;--muted:#666;--rad:12px}
+body{font-family:Inter,Segoe UI,Arial;background:#f5f7fb;color:#222;margin:0;padding:18px;display:flex;justify-content:center}
+.app{width:100%;max-width:1200px}
+h1{font-size:20px;margin:6px 0 14px}
+.controls{display:flex;flex-wrap:wrap;gap:12px;padding:12px;background:var(--panel);border-radius:var(--rad);box-shadow:0 6px 18px rgba(0,0,0,.06)}
+.controls input[type=file]{margin-left:8px}
+button{margin-left:6px;padding:8px 14px;border-radius:8px;border:1px solid #ddd;background:var(--accent);color:#fff;cursor:pointer}
+.main{display:flex;gap:16px;margin-top:12px}
+.left{width:360px}
+.panel{background:var(--panel);border-radius:var(--rad);padding:12px;box-shadow:0 6px 18px rgba(0,0,0,.06)}
+#thumbs{display:flex;flex-direction:column;gap:10px;max-height:600px;overflow:auto;padding:6px}
+.thumb{display:flex;gap:8px;align-items:center;padding:8px;border-radius:10px;background:#fbfdff;border:1px solid #eee;cursor:grab}
+.thumb.dragging{opacity:.5}
+.thumb img{height:64px;width:96px;object-fit:cover;border-radius:8px;border:1px solid #ddd}
+.thumb .meta{flex:1;display:flex;flex-direction:column;gap:6px}
+.previewWrap{flex:1;display:flex;flex-direction:column;align-items:stretch;gap:10px}
+canvas#previewCanvas{max-width:100%;border-radius:12px;border:1px solid #ddd;background:#fff}
+@media(max-width:900px){.main{flex-direction:column}.left{width:100%}}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Combinar Imágenes — Vertical PNG</h1>
+
+  <div class="controls">
+    <label>Seleccionar imágenes:
+      <input type="file" id="fileInput" accept="image/*" multiple>
+    </label>
+    <label>Tomar foto (celular):
+      <input type="file" id="cameraInput" accept="image/*" capture="environment">
+    </label>
+    <div style="margin-left:auto">
+      <button id="downloadBtn">Descargar PNG (≤3 MB)</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="left panel">
+      <div class="small" style="font-size:13px;color:#666">Arrastra para reordenar las imágenes.</div>
+      <div id="thumbs"></div>
+      <div id="infoCount" class="small" style="margin-top:10px;font-size:13px;color:#666">0 imágenes</div>
+      <button id="clearAll" style="margin-top:10px;background:#e74c3c">Limpiar</button>
+    </div>
+
+    <div class="previewWrap">
+      <div class="panel">
+        <strong>Vista previa final (Vertical)</strong>
+        <canvas id="previewCanvas" width="900" height="450"></canvas>
+        <div id="previewSize" class="small" style="font-size:13px;color:#666;margin-top:4px">Sin vista previa</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="small" style="margin-top:8px;font-size:13px;color:#666">Procesamiento local — nada se sube.</footer>
+</div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const cameraInput = document.getElementById('cameraInput');
+const thumbs = document.getElementById('thumbs');
+const infoCount = document.getElementById('infoCount');
+const clearAll = document.getElementById('clearAll');
+const previewCanvas = document.getElementById('previewCanvas');
+const pctx = previewCanvas.getContext('2d');
+const downloadBtn = document.getElementById('downloadBtn');
+const previewSize = document.getElementById('previewSize');
+
+let items = [];
+let dragSrcIndex = null;
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function readFileAsDataURL(file){
+  return new Promise((res, rej)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>res(fr.result);
+    fr.onerror = ()=>rej();
+    fr.readAsDataURL(file);
+  });
+}
+function createImage(dataURL){
+  return new Promise((res, rej)=>{
+    const img = new Image();
+    img.onload = ()=>res(img);
+    img.onerror = (e)=>rej(e);
+    img.src = dataURL;
+  });
+}
+
+// ↓ Ajusta imágenes >750KB al subir
+async function handleFiles(files){
+  for(const f of files){
+    if(!f.type.startsWith('image/')) continue;
+    try{
+      let dataURL = await readFileAsDataURL(f);
+      let img = await createImage(dataURL);
+
+      // Crear blob inicial
+      let blob = await new Promise(res=>{
+        const tmp = document.createElement('canvas');
+        tmp.width = img.width; tmp.height = img.height;
+        tmp.getContext('2d').drawImage(img,0,0,img.width,img.height);
+        tmp.toBlob(res,'image/png');
+      });
+
+      let scale = 1;
+      while(blob.size > 750*1024 && scale > 0.1){
+        scale -= 0.05;
+        const tmp = document.createElement('canvas');
+        tmp.width = Math.round(img.width * scale);
+        tmp.height = Math.round(img.height * scale);
+        tmp.getContext('2d').drawImage(img,0,0,tmp.width,tmp.height);
+        blob = await new Promise(res=>tmp.toBlob(res,'image/png'));
+
+        dataURL = await new Promise(res=>{
+          const reader = new FileReader();
+          reader.onload = ()=>res(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        img = await createImage(dataURL);
+      }
+
+      items.push({id: uid(), fileName: f.name, dataURL, image: img});
+    }catch(err){ console.error(err); alert('Error cargando imagen'); }
+  }
+  renderThumbs();
+  generatePreview();
+}
+
+fileInput.addEventListener('change', e=>handleFiles(Array.from(e.target.files || [])));
+cameraInput.addEventListener('change', e=>handleFiles(Array.from(e.target.files || [])));
+
+function renderThumbs(){
+  thumbs.innerHTML = '';
+  items.forEach((it, idx)=>{
+    const div = document.createElement('div'); 
+    div.className='thumb'; 
+    div.draggable=true; 
+    div.dataset.index=idx;
+
+    div.addEventListener('dragstart', ()=>{ dragSrcIndex = idx; div.classList.add('dragging'); });
+    div.addEventListener('dragend', ()=>{ dragSrcIndex = null; div.classList.remove('dragging'); });
+    div.addEventListener('dragover', e=>e.preventDefault());
+    div.addEventListener('drop', e=>{ 
+      e.preventDefault(); 
+      const target = Number(div.dataset.index); 
+      if(dragSrcIndex===null) return; 
+      const [m]=items.splice(dragSrcIndex,1); 
+      items.splice(target,0,m); 
+      renderThumbs(); 
+      generatePreview(); 
+    });
+
+    const imgEl = document.createElement('img'); 
+    imgEl.src=it.dataURL; 
+    imgEl.alt=it.fileName;
+
+    const meta = document.createElement('div'); 
+    meta.className='meta';
+    const name = document.createElement('div'); 
+    name.textContent = it.fileName || ('imagen '+(idx+1));
+    
+    const removeBtn = document.createElement('button'); 
+    removeBtn.textContent='Borrar'; 
+    removeBtn.style.background='#e74c3c'; 
+    removeBtn.style.color='#fff'; 
+    removeBtn.onclick = ()=>{
+      items.splice(idx,1); 
+      renderThumbs(); 
+      generatePreview();
+    };
+
+    meta.appendChild(name);
+    meta.appendChild(removeBtn);
+    div.appendChild(imgEl); 
+    div.appendChild(meta);
+    thumbs.appendChild(div);
+  });
+  infoCount.textContent = items.length + ' imagen(es)';
+}
+
+clearAll.addEventListener('click', ()=>{
+  if(!confirm('¿Limpiar todas las imágenes?')) return;
+  items=[]; renderThumbs();
+  previewCanvas.width=900; previewCanvas.height=450; pctx.clearRect(0,0,previewCanvas.width,previewCanvas.height); 
+  previewSize.textContent='Sin vista previa';
+});
+
+function renderItemToCanvas(it){
+  const img = it.image;
+  const temp = document.createElement('canvas');
+  temp.width = img.width; temp.height = img.height;
+  temp.getContext('2d').drawImage(img,0,0,img.width,img.height);
+  return {canvas:temp, width:temp.width, height:temp.height};
+}
+
+function generatePreview(){
+  if(items.length===0) return;
+  const rendered = items.map(renderItemToCanvas);
+  const margin = 8;
+  const totalH = rendered.reduce((s,it)=>s+it.height,0) + margin*(items.length-1);
+  const totalW = Math.max(...rendered.map(it=>it.width));
+
+  previewCanvas.width = totalW;
+  previewCanvas.height = totalH;
+  pctx.clearRect(0,0,totalW,totalH);
+
+  let offsetY=0;
+  rendered.forEach(it=>{
+    pctx.drawImage(it.canvas,0,offsetY,it.width,it.height);
+    offsetY += it.height + margin;
+  });
+
+  previewSize.textContent = `Vista previa: ${totalW}×${totalH}px`;
+}
+
+// ↓ Limita resultado final a ≤3MB
+async function downloadPNG3MB(){
+  if(previewCanvas.width === 0 || previewCanvas.height === 0) return;
+
+  let blob = await new Promise(res=>previewCanvas.toBlob(res,'image/png'));
+  let scale = 1;
+
+  while(blob.size > 3*1024*1024 && scale > 0.1){
+    scale -= 0.05;
+    const temp = document.createElement('canvas');
+    temp.width = Math.round(previewCanvas.width * scale);
+    temp.height = Math.round(previewCanvas.height * scale);
+    temp.getContext('2d').drawImage(previewCanvas, 0, 0, temp.width, temp.height);
+    blob = await new Promise(res=>temp.toBlob(res,'image/png'));
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'resultado.png';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+downloadBtn.addEventListener('click', downloadPNG3MB);
+</script>
+</body>
+</html>
