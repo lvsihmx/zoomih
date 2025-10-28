@@ -1,221 +1,257 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Combinar Imágenes — Vertical PNG (≤3 MB)</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Combinar Imágenes Verticalmente</title>
 <style>
-:root{--panel:#fff;--accent:#007bff;--danger:#e74c3c;--rad:12px}
-body{font-family:Inter,Segoe UI,Arial;background:#f5f7fb;color:#222;margin:0;padding:18px;display:flex;justify-content:center}
-.app{width:100%;max-width:1200px}
-h1{font-size:20px;margin:6px 0 14px}
-.controls{display:flex;flex-wrap:wrap;gap:12px;padding:12px;background:var(--panel);border-radius:var(--rad);box-shadow:0 6px 18px rgba(0,0,0,.06)}
-.controls input[type=file]{margin-left:8px}
-button{margin-left:6px;padding:8px 14px;border-radius:8px;border:1px solid #ddd;background:var(--accent);color:#fff;cursor:pointer}
-.main{display:flex;gap:16px;margin-top:12px}
-.left{width:360px}
-.panel{background:var(--panel);border-radius:var(--rad);padding:12px;box-shadow:0 6px 18px rgba(0,0,0,.06)}
-#thumbs{display:flex;flex-direction:column;gap:10px;max-height:600px;overflow:auto;padding:6px}
-.thumb{display:flex;gap:8px;align-items:center;padding:8px;border-radius:10px;background:#fbfdff;border:1px solid #eee;cursor:grab}
-.thumb.dragging{opacity:.5}
-.thumb img{height:64px;width:96px;object-fit:cover;border-radius:8px;border:1px solid #ddd}
-.thumb .meta{flex:1;display:flex;flex-direction:column;gap:6px}
-.previewWrap{flex:1;display:flex;flex-direction:column;align-items:stretch;gap:10px}
-canvas#previewCanvas{max-width:100%;border-radius:12px;border:1px solid #ddd;background:#fff}
-.progress-container{margin-top:10px;background:#ddd;border-radius:8px;height:18px;overflow:hidden;display:none}
-.progress-bar{height:100%;background:var(--accent);width:0%;color:#fff;text-align:center;font-size:12px;transition:width 0.3s}
-@media(max-width:900px){.main{flex-direction:column}.left{width:100%}}
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+    background: #f2f2f2;
+  }
+  #drop-zone {
+    border: 2px dashed #aaa;
+    padding: 30px;
+    background: #fff;
+    cursor: pointer;
+    margin-bottom: 15px;
+  }
+  #thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+  .thumb {
+    position: relative;
+    display: inline-block;
+  }
+  .thumb img {
+    width: 100px;
+    height: auto;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  .delete-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: red;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #previewCanvas {
+    max-width: 90%;
+    margin-top: 20px;
+    border: 1px solid #ccc;
+  }
+  #downloadBtn {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  /* Pantalla de carga centrada */
+  #loadingScreen {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(30, 30, 30, 0.8);
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 9999;
+  }
+  #progressBar {
+    width: 300px;
+    height: 20px;
+    background: #444;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 15px;
+  }
+  #progressFill {
+    width: 0%;
+    height: 100%;
+    background: #aaa;
+  }
+  #progressText {
+    color: white;
+    font-size: 18px;
+    margin-top: 10px;
+  }
 </style>
 </head>
 <body>
-<div class="app">
-  <h1>Combinar Imágenes — Vertical PNG</h1>
 
-  <div class="controls">
-    <label>Seleccionar imágenes:
-      <input type="file" id="fileInput" accept="image/*" multiple>
-    </label>
-    <label>Tomar foto (celular):
-      <input type="file" id="cameraInput" accept="image/*" capture="environment">
-    </label>
-    <div style="margin-left:auto">
-      <button id="downloadBtn">Descargar PNG (≤3 MB)</button>
-    </div>
-  </div>
+<h2>Combinar Imágenes Verticalmente (PNG)</h2>
 
-  <div class="main">
-    <div class="left panel">
-      <div class="small" style="font-size:13px;color:#666">Arrastra para reordenar las imágenes.</div>
-      <div id="thumbs"></div>
-      <div id="infoCount" class="small" style="margin-top:10px;font-size:13px;color:#666">0 imágenes</div>
-      <button id="clearAll" style="margin-top:10px;background:#e74c3c">Limpiar</button>
-    </div>
+<div id="drop-zone">
+  📸 Haz clic o arrastra tus imágenes aquí
+  <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+</div>
 
-    <div class="previewWrap">
-      <div class="panel">
-        <strong>Vista previa final (Vertical)</strong>
-        <canvas id="previewCanvas" width="900" height="450"></canvas>
-        <div id="previewSize" class="small" style="font-size:13px;color:#666;margin-top:4px">Sin vista previa</div>
-        <div class="progress-container" id="progressContainer">
-          <div class="progress-bar" id="progressBar">0%</div>
-        </div>
-      </div>
-    </div>
-  </div>
+<div id="thumbs"></div>
 
-  <footer class="small" style="margin-top:8px;font-size:13px;color:#666">Procesamiento local — nada se sube.</footer>
+<canvas id="previewCanvas"></canvas>
+<br>
+<button id="downloadBtn">Descargar PNG</button>
+
+<!-- Pantalla de carga -->
+<div id="loadingScreen">
+  <div id="progressText">Procesando...</div>
+  <div id="progressBar"><div id="progressFill"></div></div>
 </div>
 
 <script>
-const fileInput=document.getElementById('fileInput');
-const cameraInput=document.getElementById('cameraInput');
-const thumbs=document.getElementById('thumbs');
-const infoCount=document.getElementById('infoCount');
-const clearAll=document.getElementById('clearAll');
-const previewCanvas=document.getElementById('previewCanvas');
-const pctx=previewCanvas.getContext('2d');
-const downloadBtn=document.getElementById('downloadBtn');
-const previewSize=document.getElementById('previewSize');
-const progressContainer=document.getElementById('progressContainer');
-const progressBar=document.getElementById('progressBar');
-let items=[];let dragSrcIndex=null;
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('fileInput');
+const thumbs = document.getElementById('thumbs');
+const previewCanvas = document.getElementById('previewCanvas');
+const ctx = previewCanvas.getContext('2d');
+const downloadBtn = document.getElementById('downloadBtn');
+const loadingScreen = document.getElementById('loadingScreen');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
 
-function uid(){return Math.random().toString(36).slice(2,9);}
-function readFileAsDataURL(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>rej();fr.readAsDataURL(file);});}
-function createImage(dataURL){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=dataURL;});}
+let images = [];
 
-async function handleFiles(files){
-  for(const f of files){
-    if(!f.type.startsWith('image/')) continue;
-    try{
-      const dataURL=await readFileAsDataURL(f);
-      const img=await createImage(dataURL);
-      items.push({id:uid(),fileName:f.name,dataURL,image:img});
-    }catch(err){console.error(err);alert('Error cargando imagen');}
-  }
-  renderThumbs();generatePreview();
-}
-fileInput.addEventListener('change',e=>handleFiles(Array.from(e.target.files||[])));
-cameraInput.addEventListener('change',e=>handleFiles(Array.from(e.target.files||[])));
-
-function renderThumbs(){
-  thumbs.innerHTML='';
-  items.forEach((it,idx)=>{
-    const div=document.createElement('div');
-    div.className='thumb';
-    div.draggable=true;
-    div.dataset.index=idx;
-
-    div.addEventListener('dragstart',()=>{dragSrcIndex=idx;div.classList.add('dragging');});
-    div.addEventListener('dragend',()=>{dragSrcIndex=null;div.classList.remove('dragging');});
-    div.addEventListener('dragover',e=>e.preventDefault());
-    div.addEventListener('drop',e=>{
-      e.preventDefault();
-      const target=Number(div.dataset.index);
-      if(dragSrcIndex===null)return;
-      const [m]=items.splice(dragSrcIndex,1);
-      items.splice(target,0,m);
-      renderThumbs();generatePreview();
-    });
-
-    const imgEl=document.createElement('img');
-    imgEl.src=it.dataURL;
-    imgEl.alt=it.fileName;
-
-    const meta=document.createElement('div');
-    meta.className='meta';
-    const name=document.createElement('div');
-    name.textContent=it.fileName||('imagen '+(idx+1));
-
-    const removeBtn=document.createElement('button');
-    removeBtn.textContent='Borrar';
-    removeBtn.style.background='#e74c3c';
-    removeBtn.style.color='#fff';
-    removeBtn.onclick=()=>{
-      items.splice(idx,1);
-      renderThumbs();generatePreview();
-    };
-
-    meta.appendChild(name);
-    meta.appendChild(removeBtn);
-    div.appendChild(imgEl);
-    div.appendChild(meta);
-    thumbs.appendChild(div);
-  });
-  infoCount.textContent=items.length+' imagen(es)';
-}
-
-clearAll.addEventListener('click',()=>{
-  if(!confirm('¿Limpiar todas las imágenes?'))return;
-  items=[];renderThumbs();
-  previewCanvas.width=900;previewCanvas.height=450;
-  pctx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
-  previewSize.textContent='Sin vista previa';
+// ====================== EVENTOS DE SUBIDA ======================
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+dropZone.addEventListener('dragover', e => e.preventDefault());
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  handleFiles(e.dataTransfer.files);
 });
 
-function renderItemToCanvas(it){
-  const img=it.image;
-  const temp=document.createElement('canvas');
-  temp.width=img.width;temp.height=img.height;
-  temp.getContext('2d').drawImage(img,0,0,img.width,img.height);
-  return{canvas:temp,width:temp.width,height:temp.height};
-}
-
-function generatePreview(){
-  if(items.length===0)return;
-  const rendered=items.map(renderItemToCanvas);
-  const margin=8;
-  const totalH=rendered.reduce((s,it)=>s+it.height,0)+margin*(items.length-1);
-  const totalW=Math.max(...rendered.map(it=>it.width));
-
-  previewCanvas.width=totalW;
-  previewCanvas.height=totalH;
-  pctx.clearRect(0,0,totalW,totalH);
-
-  let offsetY=0;
-  rendered.forEach(it=>{
-    pctx.drawImage(it.canvas,0,offsetY,it.width,it.height);
-    offsetY+=it.height+margin;
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = err => reject(err);
+    reader.readAsDataURL(file);
   });
-
-  previewSize.textContent=`Vista previa: ${totalW}×${totalH}px`;
 }
 
-async function downloadPNG3MB(){
-  if(previewCanvas.width===0||previewCanvas.height===0)return;
+function createImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
 
-  progressContainer.style.display='block';
-  progressBar.style.width='10%';
-  progressBar.textContent='Preparando...';
+// ====================== MOSTRAR MINIATURAS ======================
+function renderThumbs() {
+  thumbs.innerHTML = '';
+  images.forEach((imgObj, index) => {
+    const div = document.createElement('div');
+    div.className = 'thumb';
+    const img = document.createElement('img');
+    img.src = imgObj.src;
+    const del = document.createElement('button');
+    del.className = 'delete-btn';
+    del.textContent = '✖';
+    del.onclick = () => {
+      images.splice(index, 1);
+      renderThumbs();
+    };
+    div.appendChild(img);
+    div.appendChild(del);
+    thumbs.appendChild(div);
+  });
+}
 
-  let blob=await new Promise(res=>previewCanvas.toBlob(res,'image/png'));
-  let scale=1;
-  let step=0;
-  while(blob.size>3*1024*1024&&scale>0.1){
-    step++;
-    scale-=0.05;
-    const temp=document.createElement('canvas');
-    temp.width=Math.round(previewCanvas.width*scale);
-    temp.height=Math.round(previewCanvas.height*scale);
-    temp.getContext('2d').drawImage(previewCanvas,0,0,temp.width,temp.height);
-    blob=await new Promise(res=>temp.toBlob(res,'image/png'));
-    const percent=Math.min(90,10+step*10);
-    progressBar.style.width=percent+'%';
-    progressBar.textContent=`Reduciendo... ${percent}%`;
+// ====================== MANEJAR SUBIDA ======================
+async function handleFiles(fileList) {
+  for (const file of fileList) {
+    if (!file.type.startsWith('image/')) continue;
+    const dataURL = await readFileAsDataURL(file);
+    const img = await createImage(dataURL);
+    images.push({ src: dataURL, img });
+  }
+  renderThumbs();
+}
+
+// ====================== COMBINAR VERTICAL ======================
+async function combineImages() {
+  if (images.length === 0) return;
+
+  showLoading(true, "Combinando imágenes...", 0);
+
+  // Calcular dimensiones
+  let totalWidth = Math.max(...images.map(i => i.img.width));
+  let totalHeight = images.reduce((sum, i) => sum + i.img.height, 0);
+
+  previewCanvas.width = totalWidth;
+  previewCanvas.height = totalHeight;
+
+  let y = 0;
+  for (let i = 0; i < images.length; i++) {
+    const imgObj = images[i];
+    ctx.drawImage(imgObj.img, 0, y);
+    y += imgObj.img.height;
+    updateProgress((i + 1) / images.length * 50); // 50% por combinar
   }
 
-  progressBar.style.width='100%';
-  progressBar.textContent='Listo';
-  setTimeout(()=>progressContainer.style.display='none',700);
+  // Comprimir si excede 3MB
+  let blob = await new Promise(res => previewCanvas.toBlob(res, 'image/png'));
+  let size = blob.size / 1024 / 1024;
 
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download='resultado.png';
+  if (size > 3) {
+    let scale = 1;
+    while (size > 3 && scale > 0.1) {
+      scale -= 0.05;
+      const tmp = document.createElement('canvas');
+      tmp.width = previewCanvas.width * scale;
+      tmp.height = previewCanvas.height * scale;
+      tmp.getContext('2d').drawImage(previewCanvas, 0, 0, tmp.width, tmp.height);
+      blob = await new Promise(res => tmp.toBlob(res, 'image/png'));
+      size = blob.size / 1024 / 1024;
+      updateProgress(50 + (1 - scale) * 1000); // Simulación de progreso restante
+    }
+  }
+
+  updateProgress(100);
+  showLoading(false);
+
+  // Nombre automático
+  const date = new Date();
+  const filename = `combinado_${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}_${String(date.getHours()).padStart(2,'0')}-${String(date.getMinutes()).padStart(2,'0')}-${String(date.getSeconds()).padStart(2,'0')}.png`;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
-downloadBtn.addEventListener('click',downloadPNG3MB);
+
+// ====================== PROGRESO ======================
+function showLoading(show, text = "", percent = 0) {
+  loadingScreen.style.display = show ? "flex" : "none";
+  progressFill.style.width = percent + "%";
+  progressText.textContent = text || `Procesando... ${Math.round(percent)}%`;
+}
+
+function updateProgress(percent) {
+  progressFill.style.width = percent + "%";
+  progressText.textContent = `Procesando... ${Math.round(percent)}%`;
+}
+
+// ====================== DESCARGAR ======================
+downloadBtn.addEventListener('click', combineImages);
 </script>
 </body>
 </html>
