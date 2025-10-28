@@ -187,7 +187,10 @@ async function handleFiles(fileList) {
 
 // ====================== COMBINAR VERTICAL ======================
 async function combineImages() {
-  if (images.length === 0) return;
+  if (images.length < 2) {
+    alert("Debes subir al menos 2 imágenes para combinar.");
+    return;
+  }
 
   showLoading(true, "Combinando imágenes...", 0);
 
