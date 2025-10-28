@@ -12,18 +12,24 @@
     padding: 20px;
     background: #f2f2f2;
   }
-  #drop-zone {
-    border: 2px dashed #aaa;
-    padding: 30px;
-    background: #fff;
-    cursor: pointer;
+  h2, h3 {
+    margin: 10px 0;
+  }
+  #buttons {
     margin-bottom: 15px;
+  }
+  button {
+    padding: 10px 20px;
+    margin: 5px;
+    font-size: 16px;
+    cursor: pointer;
   }
   #thumbs {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     justify-content: center;
+    margin-top: 10px;
   }
   .thumb {
     position: relative;
@@ -48,18 +54,7 @@
     cursor: pointer;
     font-size: 12px;
   }
-  #previewCanvas {
-    max-width: 90%;
-    margin-top: 20px;
-    border: 1px solid #ccc;
-  }
-  #downloadBtn {
-    margin-top: 20px;
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-  }
-  /* Pantalla de carga centrada */
+  /* Pantalla de carga */
   #loadingScreen {
     display: none;
     position: fixed;
@@ -93,18 +88,18 @@
 </head>
 <body>
 
-<h2>Combinar Imágenes Verticalmente (PNG)</h2>
-
-<div id="drop-zone">
-  📸 Haz clic o arrastra tus imágenes aquí
-  <!-- capture="environment" permite usar cámara trasera en móviles -->
-  <input type="file" id="fileInput" accept="image/*" capture="environment" multiple style="display:none">
+<h2>Paso 1: Toma foto de tus documentos o elígelos de tu galería</h2>
+<div id="buttons">
+  <button id="cameraBtn">📷 Tomar foto</button>
+  <button id="galleryBtn">🖼️ Elegir desde galería</button>
 </div>
+
+<input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="galleryInput" accept="image/*" multiple style="display:none">
 
 <div id="thumbs"></div>
 
-<canvas id="previewCanvas"></canvas>
-<br>
+<h3>Paso 2: Genera el archivo final</h3>
 <button id="downloadBtn">Descargar PNG</button>
 
 <!-- Pantalla de carga -->
@@ -114,11 +109,11 @@
 </div>
 
 <script>
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('fileInput');
+const cameraBtn = document.getElementById('cameraBtn');
+const galleryBtn = document.getElementById('galleryBtn');
+const cameraInput = document.getElementById('cameraInput');
+const galleryInput = document.getElementById('galleryInput');
 const thumbs = document.getElementById('thumbs');
-const previewCanvas = document.getElementById('previewCanvas');
-const ctx = previewCanvas.getContext('2d');
 const downloadBtn = document.getElementById('downloadBtn');
 const loadingScreen = document.getElementById('loadingScreen');
 const progressFill = document.getElementById('progressFill');
@@ -126,15 +121,14 @@ const progressText = document.getElementById('progressText');
 
 let images = [];
 
-// ====================== EVENTOS DE SUBIDA ======================
-dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => handleFiles(e.target.files));
-dropZone.addEventListener('dragover', e => e.preventDefault());
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  handleFiles(e.dataTransfer.files);
-});
+// ====================== BOTONES ======================
+cameraBtn.addEventListener('click', () => cameraInput.click());
+galleryBtn.addEventListener('click', () => galleryInput.click());
 
+cameraInput.addEventListener('change', e => handleFiles(e.target.files));
+galleryInput.addEventListener('change', e => handleFiles(e.target.files));
+
+// ====================== MANEJO DE ARCHIVOS ======================
 function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -153,7 +147,17 @@ function createImage(src) {
   });
 }
 
-// ====================== MOSTRAR MINIATURAS ======================
+async function handleFiles(fileList) {
+  for (const file of fileList) {
+    if (!file.type.startsWith('image/')) continue;
+    const dataURL = await readFileAsDataURL(file);
+    const img = await createImage(dataURL);
+    images.push({ src: dataURL, img });
+  }
+  renderThumbs();
+}
+
+// ====================== MINIATURAS ======================
 function renderThumbs() {
   thumbs.innerHTML = '';
   images.forEach((imgObj, index) => {
@@ -174,18 +178,7 @@ function renderThumbs() {
   });
 }
 
-// ====================== MANEJAR SUBIDA ======================
-async function handleFiles(fileList) {
-  for (const file of fileList) {
-    if (!file.type.startsWith('image/')) continue;
-    const dataURL = await readFileAsDataURL(file);
-    const img = await createImage(dataURL);
-    images.push({ src: dataURL, img });
-  }
-  renderThumbs();
-}
-
-// ====================== COMBINAR VERTICAL ======================
+// ====================== COMBINAR VERTICAL Y DESCARGAR ======================
 async function combineImages() {
   if (images.length < 2) {
     alert("Debes subir al menos 2 imágenes para combinar.");
@@ -194,12 +187,13 @@ async function combineImages() {
 
   showLoading(true, "Combinando imágenes...", 0);
 
-  // Calcular dimensiones
   let totalWidth = Math.max(...images.map(i => i.img.width));
   let totalHeight = images.reduce((sum, i) => sum + i.img.height, 0);
 
-  previewCanvas.width = totalWidth;
-  previewCanvas.height = totalHeight;
+  const canvas = document.createElement('canvas');
+  canvas.width = totalWidth;
+  canvas.height = totalHeight;
+  const ctx = canvas.getContext('2d');
 
   let y = 0;
   for (let i = 0; i < images.length; i++) {
@@ -210,7 +204,7 @@ async function combineImages() {
   }
 
   // Comprimir si excede 3MB
-  let blob = await new Promise(res => previewCanvas.toBlob(res, 'image/png'));
+  let blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
   let size = blob.size / 1024 / 1024;
 
   if (size > 3) {
@@ -218,19 +212,18 @@ async function combineImages() {
     while (size > 3 && scale > 0.1) {
       scale -= 0.05;
       const tmp = document.createElement('canvas');
-      tmp.width = previewCanvas.width * scale;
-      tmp.height = previewCanvas.height * scale;
-      tmp.getContext('2d').drawImage(previewCanvas, 0, 0, tmp.width, tmp.height);
+      tmp.width = canvas.width * scale;
+      tmp.height = canvas.height * scale;
+      tmp.getContext('2d').drawImage(canvas, 0, 0, tmp.width, tmp.height);
       blob = await new Promise(res => tmp.toBlob(res, 'image/png'));
       size = blob.size / 1024 / 1024;
-      updateProgress(50 + (1 - scale) * 1000);
+      updateProgress(50 + (1 - scale) * 50);
     }
   }
 
   updateProgress(100);
   showLoading(false);
 
-  // Nombre automático
   const date = new Date();
   const filename = `combinado_${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}_${String(date.getHours()).padStart(2,'0')}-${String(date.getMinutes()).padStart(2,'0')}-${String(date.getSeconds()).padStart(2,'0')}.png`;
 
@@ -254,8 +247,9 @@ function updateProgress(percent) {
   progressText.textContent = `Procesando... ${Math.round(percent)}%`;
 }
 
-// ====================== DESCARGAR ======================
+// ====================== BOTÓN DESCARGAR ======================
 downloadBtn.addEventListener('click', combineImages);
 </script>
+
 </body>
 </html>
