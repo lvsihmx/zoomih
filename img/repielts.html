@@ -51,7 +51,7 @@ button:hover { background-color:#0056b3; }
 
 <div class="form-group">
 <label for="filename-input">Nombre para guardar los archivos (sin extensión):</label>
-<input type="text" id="filename-input" value="Reporte_Starters">
+<input type="text" id="filename-input" value="Reporte_IELTS_">
 </div>
 
 <div class="form-group">
@@ -107,13 +107,22 @@ let finalReportData = [];
 let headerImageInfo = null;
 let chartInstance = null;
 
-const fixedAvgConditions = [
-{ min:0, max:4.2, text:'BELOW B1' },
-{ min:4.3, max:5.4, text:'B1' },
-{ min:5.5, max:6.5, text:'B2' }
-{ min:7, max:8.1, text:'C1' }
-{ min:8.2, max:9, text:'C2' }
-];
+   // Rangos y textos fijos para el promedio
+        const fixedAvgConditions = [
+
+
+
+            { min: 0, max: 4.2, text: 'BELOW B1' },
+             { min: 4.3, max: 5.4, text: 'B1' },
+            { min: 5.5, max: 6.6, text: 'B2' },
+            { min: 6.7, max: 8.1, text: 'C1' },
+	    { min:8.2, max:9, text:'C2' }
+
+
+
+
+
+        ];
 
 const CERT_RECOMMENDATION_TEXT = 'Nivel recomendado';
 
@@ -366,3 +375,5 @@ document.getElementById('download-word-btn').addEventListener('click',function()
 </script>
 </body>
 </html>
+
+
