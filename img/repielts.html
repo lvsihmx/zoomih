@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Reportes de Excel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body { font-family: Arial, sans-serif; margin:20px; background-color:#f0f2f5; color:#333; }
+.container { max-width: 900px; margin:auto; padding:30px; background:#fff; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+h1,h2,h3 { color:#333; border-bottom:2px solid #007bff; padding-bottom:5px; margin-top:20px; }
+#upload-section { margin-bottom:20px; padding:20px; border:1px dashed #ccc; border-radius:8px;}
+.report-section { display:none; margin-top:30px; padding:20px; border-top:2px solid #e9ecef; }
+.form-group { margin-bottom:15px; }
+label { font-weight:bold; display:block; margin-bottom:5px; }
+select, input[type="text"], textarea, input[type="file"] { width:100%; padding:8px; border-radius:4px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box; }
+button { background-color:#007bff; color:white; padding:10px 20px; border:none; border-radius:5px; cursor:pointer; font-size:16px; transition:background-color 0.3s; margin-right:10px; }
+button:hover { background-color:#0056b3; }
+#report-output { border:1px solid #ccc; padding:15px; border-radius:5px; white-space: pre-wrap; font-family: monospace; }
+.conditional-text.promedio { color: #28a745; }
+
+/* Colores Botones */
+#copy-btn { background-color: #28a745; }
+#copy-btn:hover { background-color: #1e7e34; }
+#download-excel-btn { background-color: #ffc107; color:#333; }
+#download-excel-btn:hover { background-color: #e0a800; }
+#download-pdf-btn { background-color: #dc3545; }
+#download-pdf-btn:hover { background-color: #c82333; }
+#download-word-btn { background-color: #17a2b8; }
+#download-word-btn:hover { background-color: #138496; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Generador de Reportes de Excel</h1>
+
+<div id="upload-section">
+<h2>Paso 1: Sube tu archivo Excel</h2>
+<form id="upload-form">
+<input type="file" id="excelFile" name="excelFile" accept=".xlsx,.xls"><br><br>
+<button type="submit">Cargar Datos</button>
+</form>
+</div>
+
+<div class="report-section" id="options-section">
+<h2>Paso 2: Configura tu reporte</h2>
+
+<div class="form-group">
+<label for="filename-input">Nombre para guardar los archivos (sin extensión):</label>
+<input type="text" id="filename-input" value="Reporte_Starters">
+</div>
+
+<div class="form-group">
+<label for="header-text">Encabezado del Reporte (PDF y Texto):</label>
+<textarea id="header-text" rows="2" placeholder="Ej: Reporte Oficial de Evaluaciones - Enero 2025"></textarea>
+</div>
+
+<div class="form-group">
+<label for="header-image-file">Imagen para Encabezado (PDF, opcional):</label>
+<input type="file" id="header-image-file" accept="image/png, image/jpeg">
+</div>
+
+<div class="form-group">
+<label for="display-columns-select">Selecciona las columnas a mostrar:</label>
+<select id="display-columns-select" multiple size="5"></select>
+</div>
+
+<div class="form-group">
+<h3>Opciones para Promedio</h3>
+<label for="avg-column1-select">Columna 1 para calcular el promedio:</label>
+<select id="avg-column1-select"></select>
+<label for="avg-column2-select">Columna 2 para calcular el promedio:</label>
+<select id="avg-column2-select"></select>
+</div>
+
+<div class="form-group">
+<label for="footer-text">Pie de Página del Reporte (PDF):</label>
+<input type="text" id="footer-text" placeholder="Ej: Firma del Director, Fecha de Generación">
+</div>
+
+<div class="form-group">
+<label for="final-text">Texto al Final del Reporte (Texto Plano, PDF y Word):</label>
+<textarea id="final-text" rows="3" placeholder="Ej: Estos resultados son confidenciales. Por favor, contacte a su supervisor para cualquier aclaración."></textarea>
+</div>
+
+<button id="generate-report-btn">Generar Reporte</button>
+</div>
+
+<div class="report-section" id="report-output-section">
+<h2>Paso 3: Reporte Generado</h2>
+<button id="copy-btn">Copiar Reporte (Texto)</button>
+<button id="download-excel-btn">Descargar Excel (.xlsx)</button>
+<button id="download-pdf-btn">Descargar PDF (.pdf)</button>
+<button id="download-word-btn">Descargar Word (.doc)</button>
+<canvas id="nivelChart" style="max-width:100%; margin-top:20px;"></canvas>
+<div id="report-output"></div>
+</div>
+</div>
+
+<script>
+let excelData = [];
+let finalReportData = [];
+let headerImageInfo = null;
+let chartInstance = null;
+
+const fixedAvgConditions = [
+{ min:0, max:4.2, text:'BELOW B1' },
+{ min:4.3, max:5.4, text:'B1' },
+{ min:5.5, max:6.5, text:'B2' }
+{ min:7, max:8.1, text:'C1' }
+{ min:8.2, max:9, text:'C2' }
+];
+
+const CERT_RECOMMENDATION_TEXT = 'Nivel recomendado';
+
+// --- Función para generar nombre con fecha ---
+function getFilename(){
+    let filename = document.getElementById('filename-input').value.trim();
+    if(!filename){ filename = "Reporte_Generado"; }
+    filename = filename.replace(/[^a-zA-Z0-9_]/g,'_');
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const dd = String(today.getDate()).padStart(2,'0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    return `${filename}_${dateStr}`;
+}
+
+// --- Carga de Excel ---
+document.getElementById('upload-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    const file=document.getElementById('excelFile').files[0];
+    if(!file){ alert('Selecciona un archivo primero.'); return; }
+    const reader=new FileReader();
+    reader.onload=function(e){
+        const data=new Uint8Array(e.target.result);
+        const workbook=XLSX.read(data,{type:'array'});
+        const sheetName=workbook.SheetNames[0];
+        const worksheet=workbook.Sheets[sheetName];
+        excelData=XLSX.utils.sheet_to_json(worksheet,{header:1});
+        if(excelData.length===0){ alert('Archivo Excel vacío.'); return; }
+        const headers=excelData[0];
+        const displaySelect=document.getElementById('display-columns-select');
+        const avg1Select=document.getElementById('avg-column1-select');
+        const avg2Select=document.getElementById('avg-column2-select');
+        displaySelect.innerHTML=''; avg1Select.innerHTML=''; avg2Select.innerHTML='';
+        headers.forEach((header,index)=>{
+            const optionText=header||`Columna ${String.fromCharCode(65+index)}`;
+            const optionDisplay=document.createElement('option'); optionDisplay.value=index; optionDisplay.textContent=optionText; displaySelect.appendChild(optionDisplay);
+            const optionAvg1=optionDisplay.cloneNode(true); avg1Select.appendChild(optionAvg1);
+            const optionAvg2=optionDisplay.cloneNode(true); avg2Select.appendChild(optionAvg2);
+        });
+        document.getElementById('options-section').style.display='block';
+    };
+    reader.readAsArrayBuffer(file);
+});
+
+// --- Imagen encabezado ---
+document.getElementById('header-image-file').addEventListener('change', function(e){
+    const file=e.target.files[0];
+    if(file){
+        const reader=new FileReader();
+        reader.onload=function(e){
+            const img=new Image();
+            img.onload=function(){
+                const canvas=document.createElement('canvas');
+                const MAX_PIXEL_WIDTH=1500;
+                let width=img.width; let height=img.height; let ratio=width/height;
+                if(width>MAX_PIXEL_WIDTH){ width=MAX_PIXEL_WIDTH; height=width/ratio; }
+                canvas.width=width; canvas.height=height;
+                const ctx=canvas.getContext('2d');
+                ctx.drawImage(img,0,0,width,height);
+                headerImageInfo={ base64:canvas.toDataURL('image/jpeg',0.9), originalWidth:img.width, originalHeight:img.height };
+                alert('Imagen de encabezado cargada.');
+            }
+            img.src=e.target.result;
+        };
+        reader.readAsDataURL(file);
+    } else { headerImageInfo=null; }
+});
+
+// --- Formatear texto ---
+function formatReportToText(htmlContent, headerText, finalTexto){
+    let text='';
+    if(headerText){ text+=headerText.toUpperCase()+'\n'+ '='.repeat(headerText.length+10)+'\n\n'; }
+    htmlContent=htmlContent.replace(/Nota \(Promedio\):/g, CERT_RECOMMENDATION_TEXT+':');
+    text+=htmlContent.replace(/<p class="conditional-text promedio">(.*?)<\/p>/g,(m,p1)=>p1.trim()+'\n');
+    text=text.replace(/<p>(.*?)<\/p>/g,(m,p1)=>p1.trim()+'\n');
+    text=text.replace(/<h4>(.*?)<\/h4>/g,(m,p1)=>'\n'+p1.trim().toUpperCase()+'\n'+ '-'.repeat(p1.trim().length+20)+'\n');
+    text=text.replace(/<\/?strong>/g,'');
+    text=text.replace(/<div class="report-row">/g,'');
+    text=text.replace(/<\/div>/g,'\n'+ '='.repeat(40)+'\n');
+    text=text.trim();
+    if(finalTexto){ text+='\n\n'+ '*'.repeat(40)+'\n'+finalTexto+'\n'; }
+    return text;
+}
+
+// --- Generar reporte ---
+document.getElementById('generate-report-btn').addEventListener('click', function(){
+    const displayColumnsSelect=document.getElementById('display-columns-select');
+    const selectedDisplayIndices=Array.from(displayColumnsSelect.selectedOptions).map(opt=>parseInt(opt.value));
+    const avgColumn1Index=parseInt(document.getElementById('avg-column1-select').value);
+    const avgColumn2Index=parseInt(document.getElementById('avg-column2-select').value);
+
+    if(selectedDisplayIndices.length===0){ alert('Selecciona al menos una columna.'); return; }
+
+    const reportOutput=document.getElementById('report-output');
+    reportOutput.innerHTML='';
+    const headers=excelData[0];
+    const dataRows=excelData.slice(1);
+
+    finalReportData=[];
+    let finalHeaders=selectedDisplayIndices.map(index=>headers[index]);
+    finalHeaders.push('Promedio Calculado');
+    finalHeaders.push(CERT_RECOMMENDATION_TEXT);
+    finalReportData.push(finalHeaders);
+
+    dataRows.forEach((row,rowIndex)=>{
+        const value1=parseFloat(row[avgColumn1Index]);
+        const value2=parseFloat(row[avgColumn2Index]);
+        let average=NaN;
+        if(!isNaN(value1)&&!isNaN(value2)){ average=(value1+value2)/2; }
+
+        let avgConditionalText='';
+        if(!isNaN(average)){
+            for(const condition of fixedAvgConditions){ if(average>=condition.min&&average<=condition.max){ avgConditionalText=condition.text; break; } }
+        } else { avgConditionalText='NO ANSWERED'; }
+
+        const reportRow=document.createElement('div'); reportRow.className='report-row';
+        let rowContent=`<h4>Reporte de Fila ${rowIndex+1}</h4>`;
+        let finalRow=[];
+        selectedDisplayIndices.forEach(index=>{
+            const cellValue=row[index]!==undefined?row[index]:'';
+            rowContent+=`<p><strong>${headers[index]}:</strong> ${cellValue}</p>`;
+            finalRow.push(cellValue);
+        });
+        if(!isNaN(average)){ const avgFixed=average.toFixed(2); rowContent+=`<p><strong>Promedio de ${headers[avgColumn1Index]} y ${headers[avgColumn2Index]}:</strong> ${avgFixed}</p>`; finalRow.push(parseFloat(avgFixed)); }
+        else { finalRow.push(''); }
+        rowContent+=`<p class="conditional-text promedio">${CERT_RECOMMENDATION_TEXT}: ${avgConditionalText}</p>`;
+        finalRow.push(avgConditionalText);
+
+        reportRow.innerHTML=rowContent;
+        reportOutput.appendChild(reportRow);
+        finalReportData.push(finalRow);
+    });
+
+    const headerText=document.getElementById('header-text').value;
+    const finalText=document.getElementById('final-text').value;
+    const rawHtmlContent=reportOutput.innerHTML;
+    reportOutput.innerHTML=formatReportToText(rawHtmlContent,headerText,finalText);
+    document.getElementById('report-output-section').style.display='block';
+
+    // --- Gráfica Nivel Recomendado ---
+    const nivelCounts={};
+    finalReportData.slice(1).forEach(row=>{ const nivel=row[row.length-1]; if(nivelCounts[nivel]){ nivelCounts[nivel]+=1; } else{ nivelCounts[nivel]=1; } });
+    const sortedNivel=Object.entries(nivelCounts).sort((a,b)=>b[1]-a[1]);
+    const labels=sortedNivel.map(e=>e[0]);
+    const dataValues=sortedNivel.map(e=>e[1]);
+    const ctx=document.getElementById('nivelChart').getContext('2d');
+    if(chartInstance){ chartInstance.destroy(); }
+    chartInstance=new Chart(ctx,{
+        type:'bar',
+        data:{ labels:labels, datasets:[{ label:'Cantidad de Estudiantes', data:dataValues, backgroundColor:'rgba(0,123,255,0.6)', borderColor:'rgba(0,123,255,1)', borderWidth:1 }]},
+        options:{ responsive:true, plugins:{ legend:{display:false}, title:{display:true,text:'Gráfico de niveles obtenidos'} }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } }
+    });
+});
+
+// --- Copiar ---
+document.getElementById('copy-btn').addEventListener('click',function(){
+    const reportOutput=document.getElementById('report-output');
+    const headerText=document.getElementById('header-text').value;
+    const finalText=document.getElementById('final-text').value;
+    const textToCopy=formatReportToText(reportOutput.innerHTML,headerText,finalText);
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(textToCopy).then(()=>{ alert('¡Reporte copiado al portapapeles! 📋'); }).catch(err=>{ console.error(err); alert('Error al copiar.'); }); }
+    else{ const tempTextArea=document.createElement('textarea'); tempTextArea.value=textToCopy; document.body.appendChild(tempTextArea); tempTextArea.select(); try{ document.execCommand('copy'); alert('¡Reporte copiado al portapapeles! 📋'); }catch(err){ alert('No se pudo copiar automáticamente.'); } document.body.removeChild(tempTextArea); }
+});
+
+// --- Descargar Excel ---
+document.getElementById('download-excel-btn').addEventListener('click',function(){
+    if(finalReportData.length<=1){ alert('Genera el reporte primero.'); return; }
+    const filename=getFilename();
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet(finalReportData);
+    XLSX.utils.book_append_sheet(wb,ws,"Reporte Final");
+    XLSX.writeFile(wb,filename+".xlsx");
+    alert('¡Descarga de Excel completada! 🚀');
+});
+
+// --- Descargar PDF ---
+document.getElementById('download-pdf-btn').addEventListener('click',function(){
+    if(finalReportData.length<=1){ alert('Genera el reporte primero.'); return; }
+    const filename=getFilename();
+    const headerText=document.getElementById('header-text').value;
+    const footerText=document.getElementById('footer-text').value;
+    const finalText=document.getElementById('final-text').value;
+    const { jsPDF } = window.jspdf;
+    const doc=new jsPDF('p','mm','a4'); let y=10;
+
+    if(headerImageInfo){ 
+        const imgWidth=180; 
+        const imgHeight=(imgWidth/headerImageInfo.originalWidth)*headerImageInfo.originalHeight; 
+        doc.addImage(headerImageInfo.base64,'JPEG',15,y,imgWidth,imgHeight); 
+        y+=imgHeight+5; 
+    }
+
+    if(headerText){ doc.setFontSize(16); doc.text(headerText,105,y,{align:'center'}); y+=10; }
+
+    if(chartInstance){
+        const chartCanvas = document.getElementById('nivelChart');
+        const chartImgData = chartCanvas.toDataURL('image/png', 1.0);
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 10;
+        const pdfImgWidth = pageWidth - margin*2;
+        const pdfImgHeight = (chartCanvas.height / chartCanvas.width) * pdfImgWidth;
+        doc.addImage(chartImgData, 'PNG', margin, y, pdfImgWidth, pdfImgHeight);
+        y += pdfImgHeight + 5;
+    }
+
+    doc.autoTable({ 
+        head:[finalReportData[0].map(h=>String(h))], 
+        body:finalReportData.slice(1), 
+        startY:y, 
+        theme:'striped', 
+        headStyles:{fillColor:[0,123,255]}, 
+        margin:{top:10,left:10,right:10}, 
+        didDrawPage:function(data){ 
+            doc.setFontSize(10); 
+            const pageHeight=doc.internal.pageSize.height; 
+            if(footerText){ doc.text(footerText,10,pageHeight-10); } 
+            doc.text('Página '+data.pageNumber,200,pageHeight-10,{align:'right'}); 
+        } 
+    });
+
+    y = doc.autoTable.previous.finalY + 10;
+    if(finalText){
+        doc.setFontSize(12);
+        doc.setTextColor(50);
+        const splitText = doc.splitTextToSize(finalText, 180);
+        doc.text(splitText, 10, y);
+    }
+
+    doc.save(filename + ".pdf");
+    alert('¡Descarga de PDF completada! 🚀');
+});
+
+// --- Descargar Word ---
+document.getElementById('download-word-btn').addEventListener('click',function(){
+    if(finalReportData.length<=1){ alert('Genera el reporte primero.'); return; }
+    const filename=getFilename();
+    const headerText=document.getElementById('header-text').value;
+    const finalText=document.getElementById('final-text').value;
+    let tableHTML='<table>';
+    finalReportData.forEach((row,rowIndex)=>{ tableHTML+='<tr>'; row.forEach(cell=>{ const tag=rowIndex===0?'th':'td'; tableHTML+=`<${tag} style="border:1px solid #000; padding:8px;">${cell}</${tag}>`; }); tableHTML+='</tr>'; });
+    tableHTML+='</table>';
+    const content=`<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;}h1{color:#007bff;border-bottom:2px solid #007bff;padding-bottom:5px;}table{width:100%;border-collapse:collapse;margin-top:20px;}th{background-color:#f0f0f0;}</style></head><body>${headerText?`<h1>${headerText}</h1>`:''}${tableHTML}${finalText?`<p style="margin-top:20px;"><strong>Nota Final:</strong> ${finalText}</p>`:''}</body></html>`;
+    const blob=new Blob(['\ufeff',content],{type:'application/msword'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=filename+".doc"; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); alert('¡Descarga de Word completada! 📄');
+});
+</script>
+</body>
+</html>
