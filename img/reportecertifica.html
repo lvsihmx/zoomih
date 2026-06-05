@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>PDF OCR Extractor</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<style>
+body { margin:0; font-family:Arial; background:#111; color:#eee; }
+#top { padding:10px; background:#222; display:flex; gap:10px; }
+canvas { border:1px solid #444; cursor:crosshair; }
+#wrap { position:relative; display:inline-block; }
+#overlay { position:absolute; top:0; left:0; pointer-events:none; }
+button { padding:8px; }
+</style>
+</head>
+
+<body>
+
+<div id="top">
+<input type="file" id="file">
+<button id="prev">Prev</button>
+<button id="next">Next</button>
+<button id="run">Extraer</button>
+<button id="excel">Excel</button>
+<span id="info"></span>
+</div>
+
+<div id="wrap">
+<canvas id="pdf"></canvas>
+<canvas id="overlay"></canvas>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+let pdf=null, pageNum=1, total=0;
+let scale=1.5;
+
+let zones=[];
+let drawing=false, x0=0, y0=0;
+
+const canvas=document.getElementById("pdf");
+const overlay=document.getElementById("overlay");
+const ctx=overlay.getContext("2d");
+
+let worker;
+
+async function initOCR(){
+  worker = await Tesseract.createWorker("spa");
+}
+
+initOCR();
+
+document.getElementById("file").onchange=async e=>{
+  const file=e.target.files[0];
+  const buf=await file.arrayBuffer();
+  pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  total=pdf.numPages;
+  pageNum=1;
+  render();
+};
+
+async function render(){
+  const page=await pdf.getPage(pageNum);
+  const vp=page.getViewport({scale});
+  canvas.width=vp.width;
+  canvas.height=vp.height;
+  overlay.width=vp.width;
+  overlay.height=vp.height;
+
+  await page.render({
+    canvasContext:canvas.getContext("2d"),
+    viewport:vp
+  }).promise;
+
+  drawZones();
+  document.getElementById("info").innerText=
+    `${pageNum}/${total} | zonas: ${zones.length}`;
+}
+
+function drawZones(){
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+  for(let z of zones){
+    ctx.strokeStyle="red";
+    ctx.strokeRect(z.x,z.y,z.w,z.h);
+  }
+}
+
+// ───── SELECCIÓN ─────
+canvas.addEventListener("mousedown",e=>{
+  const r=canvas.getBoundingClientRect();
+  x0=e.clientX-r.left;
+  y0=e.clientY-r.top;
+  drawing=true;
+});
+
+canvas.addEventListener("mouseup",e=>{
+  if(!drawing) return;
+  drawing=false;
+
+  const r=canvas.getBoundingClientRect();
+  let x1=e.clientX-r.left;
+  let y1=e.clientY-r.top;
+
+  const x=Math.min(x0,x1);
+  const y=Math.min(y0,y1);
+  const w=Math.abs(x1-x0);
+  const h=Math.abs(y1-y0);
+
+  if(w<10||h<10) return;
+
+  zones.push({x,y,w,h});
+  drawZones();
+  document.getElementById("info").innerText=
+    `${pageNum}/${total} | zonas: ${zones.length}`;
+});
+
+// ───── PAGINAS ─────
+document.getElementById("prev").onclick=async()=>{
+  if(pageNum>1){pageNum--;render();}
+};
+document.getElementById("next").onclick=async()=>{
+  if(pageNum<total){pageNum++;render();}
+};
+
+// ───── OCR ─────
+async function extractZone(page, viewport, zone){
+  const textContent=await page.getTextContent();
+
+  const items=textContent.items.map(i=>{
+    const [x,y]=viewport.convertToViewportPoint(
+      i.transform[4],
+      i.transform[5]
+    );
+    return {text:i.str,x,y};
+  });
+
+  const f=items.filter(i=>
+    i.x>=zone.x &&
+    i.x<=zone.x+zone.w &&
+    i.y>=zone.y &&
+    i.y<=zone.y+zone.h
+  );
+
+  const text=f.map(i=>i.text).join(" ").trim();
+
+  // 🔥 si no hay texto → vacío real
+  return text.length ? text : "";
+}
+
+// ───── RUN ─────
+document.getElementById("run").onclick=async()=>{
+  if(!pdf) return;
+
+  window.results=[];
+
+  for(let p=1;p<=total;p++){
+    const page=await pdf.getPage(p);
+    const vp=page.getViewport({scale});
+
+    for(let z of zones){
+      const t=await extractZone(page,vp,z);
+      window.results.push({page:p,text:t});
+    }
+  }
+
+  alert("Extracción lista");
+};
+
+// ───── EXCEL ─────
+document.getElementById("excel").onclick=()=>{
+  const wb=XLSX.utils.book_new();
+
+  const data=[["Página","Texto"]];
+
+  for(let r of window.results||[]){
+    data.push([r.page,r.text]); // vacío si no hay texto
+  }
+
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb,ws,"Datos");
+  XLSX.writeFile(wb,"resultado.xlsx");
+};
+</script>
+
+</body>
+</html>
