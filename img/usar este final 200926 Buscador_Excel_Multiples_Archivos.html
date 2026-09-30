@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buscador de datos en Excel</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:24px;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#f3f6fa;color:#172033;
+  }
+  .container{max-width:1500px;margin:auto}
+  h1{margin:0 0 8px;font-size:28px}
+  .subtitle{margin:0 0 22px;color:#5d687a}
+  .top{
+    background:white;border-radius:14px;padding:20px;
+    box-shadow:0 3px 14px rgba(0,0,0,.08);margin-bottom:20px;
+  }
+  .upload{
+    border:2px dashed #8aa0bd;border-radius:12px;padding:28px;
+    text-align:center;background:#f9fbfd;cursor:pointer;
+  }
+  .upload:hover{background:#f1f6fb}
+  .upload input{display:none}
+  .btn{
+    border:0;border-radius:8px;padding:10px 15px;cursor:pointer;
+    font-weight:700;font-size:14px;
+  }
+  .primary{background:#2563eb;color:white}
+  .secondary{background:#e8edf5;color:#1f2a3d}
+  .success{background:#16803c;color:white}
+  .danger{background:#d93025;color:white}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  #filesContainer{display:grid;gap:20px}
+  .card{
+    background:white;border-radius:14px;padding:20px;
+    box-shadow:0 3px 14px rgba(0,0,0,.08);
+  }
+  .cardHead{
+    display:flex;justify-content:space-between;align-items:center;
+    gap:15px;margin-bottom:18px;flex-wrap:wrap
+  }
+  .fileName{font-size:19px;font-weight:700}
+  .fileInfo{font-size:13px;color:#667085;margin-top:4px}
+  .grid{
+    display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:14px;
+  }
+  label{font-size:13px;font-weight:700;color:#465166}
+  select,input[type="number"],input[type="text"]{
+    width:100%;margin-top:6px;padding:10px 11px;border:1px solid #cbd5e1;
+    border-radius:8px;background:white;font-size:14px;outline:none;
+  }
+  select:focus,input:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.1)}
+  .actions{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:14px}
+  .results{margin-top:20px;border-top:1px solid #e5e7eb;padding-top:18px}
+  .resultTitle{font-weight:700;margin-bottom:10px}
+  .tableWrap{overflow:auto;border:1px solid #dce3ec;border-radius:9px}
+  table{border-collapse:collapse;width:max-content;min-width:100%}
+  th,td{border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb;
+      padding:8px 10px;text-align:left;font-size:13px;white-space:nowrap}
+  th{background:#eef3f8;position:sticky;top:0;z-index:1}
+  tr:last-child td{border-bottom:0}
+  .copyCell{position:sticky;right:0;background:white;z-index:2}
+  th.copyCell{background:#eef3f8}
+  .copyBtn{padding:6px 9px;font-size:12px}
+  .status{margin-top:10px;font-size:13px;color:#566274}
+  .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#e8f1ff;color:#1854a6;font-size:12px;font-weight:700}
+  .empty{text-align:center;padding:35px;color:#697586}
+  .notice{margin-top:12px;font-size:13px;color:#687386}
+  @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(180px,1fr))}}
+  @media(max-width:600px){body{padding:12px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Buscador de datos en Excel</h1>
+  <p class="subtitle">Sube varios archivos y configura la búsqueda de manera independiente para cada archivo.</p>
+
+  <div class="top">
+    <label class="upload">
+      <input id="fileInput" type="file" multiple accept=".xlsx,.xls,.xlsm">
+      <strong>📁 Seleccionar archivos Excel</strong><br>
+      <span style="font-size:13px;color:#667085">Puedes seleccionar varios archivos a la vez (.xlsx, .xls, .xlsm)</span>
+    </label>
+    <div class="notice">
+      Los archivos se procesan localmente en tu navegador. No se modifican ni se envían a ningún servidor.
+    </div>
+  </div>
+
+  <div id="filesContainer"></div>
+</div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const filesContainer = document.getElementById('filesContainer');
+const states = new Map();
+
+fileInput.addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  for (const file of files) {
+    try {
+      await addFile(file);
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo leer el archivo "' + file.name + '". Verifica que sea un Excel válido.');
+    }
+  }
+  fileInput.value = '';
+});
+
+async function addFile(file){
+  const buffer = await file.arrayBuffer();
+  const wb = XLSX.read(buffer, {type:'array', cellDates:false, raw:true});
+  const id = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  states.set(id, {file, wb, results:[]});
+  renderCard(id);
+}
+
+function esc(v){
+  return String(v ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderCard(id){
+  const state = states.get(id);
+  const card = document.createElement('section');
+  card.className = 'card';
+  card.id = id;
+
+  card.innerHTML = `
+    <div class="cardHead">
+      <div>
+        <div class="fileName">📄 ${esc(state.file.name)}</div>
+        <div class="fileInfo">${state.wb.SheetNames.length} pestaña(s)</div>
+      </div>
+      <button class="btn danger removeBtn">Eliminar archivo</button>
+    </div>
+
+    <div class="grid">
+      <label>
+        Pestaña
+        <select class="sheetSelect"></select>
+      </label>
+
+      <label>
+        Columna donde buscar
+        <select class="columnSelect"></select>
+      </label>
+
+      <label>
+        Hasta número de fila
+        <input class="rowLimit" type="number" min="1" value="1000">
+      </label>
+
+      <label>
+        Dato a encontrar
+        <input class="searchValue" type="text" placeholder="Escribe el dato...">
+      </label>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary searchBtn">🔎 Buscar</button>
+      <button class="btn secondary clearBtn">Limpiar resultados</button>
+    </div>
+
+    <div class="results">
+      <div class="empty">Configura la búsqueda y presiona <b>Buscar</b>.</div>
+    </div>
+  `;
+
+  filesContainer.appendChild(card);
+
+  const sheetSelect = card.querySelector('.sheetSelect');
+  const columnSelect = card.querySelector('.columnSelect');
+
+  state.wb.SheetNames.forEach((name, i) => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    sheetSelect.appendChild(opt);
+  });
+
+  sheetSelect.addEventListener('change', () => updateColumns(id));
+  card.querySelector('.searchBtn').addEventListener('click', () => searchFile(id));
+  card.querySelector('.clearBtn').addEventListener('click', () => {
+    card.querySelector('.results').innerHTML = '<div class="empty">Resultados limpiados.</div>';
+  });
+  card.querySelector('.removeBtn').addEventListener('click', () => {
+    states.delete(id);
+    card.remove();
+  });
+
+  updateColumns(id);
+}
+
+function getSheetRows(state){
+  const card = document.getElementById([...states.keys()].find(k => document.getElementById(k) === event?.target?.closest?.('.card')));
+  return null;
+}
+
+function updateColumns(id){
+  const state = states.get(id);
+  const card = document.getElementById(id);
+  const sheet = card.querySelector('.sheetSelect').value;
+  const ws = state.wb.Sheets[sheet];
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  const colSelect = card.querySelector('.columnSelect');
+
+  colSelect.innerHTML = '';
+
+  for(let c=range.s.c;c<=range.e.c;c++){
+    const letter = XLSX.utils.encode_col(c);
+    const cell = ws[XLSX.utils.encode_cell({r:range.s.r,c})];
+    const header = cell && cell.v !== undefined && cell.v !== null && String(cell.v).trim() !== ''
+      ? String(cell.v)
+      : 'Columna ' + letter;
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = `${letter} — ${header}`;
+    colSelect.appendChild(opt);
+  }
+}
+
+function cellValue(ws,r,c){
+  const cell = ws[XLSX.utils.encode_cell({r,c})];
+  if(!cell) return '';
+  if(cell.w !== undefined && cell.w !== null && cell.w !== '') return String(cell.w);
+  if(cell.v instanceof Date) return cell.v.toLocaleString();
+  return cell.v === undefined || cell.v === null ? '' : String(cell.v);
+}
+
+function normalize(s){
+  return String(s ?? '').trim().toLocaleLowerCase();
+}
+
+function searchFile(id){
+  const state = states.get(id);
+  const card = document.getElementById(id);
+  const sheetName = card.querySelector('.sheetSelect').value;
+  const col = Number(card.querySelector('.columnSelect').value);
+  const rowLimit = Math.max(1, Number(card.querySelector('.rowLimit').value || 1));
+  const query = card.querySelector('.searchValue').value;
+
+  if(!query.trim()){
+    alert('Escribe el dato que deseas encontrar.');
+    return;
+  }
+
+  const ws = state.wb.Sheets[sheetName];
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  const lastRow = Math.min(range.e.r + 1, rowLimit); // fila Excel 1-based
+  const results = [];
+
+  for(let excelRow=1; excelRow<=lastRow; excelRow++){
+    const r = excelRow - 1;
+    const value = cellValue(ws,r,col);
+    if(normalize(value) === normalize(query)){
+      const row = [];
+      for(let c=range.s.c;c<=range.e.c;c++){
+        row.push(cellValue(ws,r,c));
+      }
+      results.push({excelRow,row});
+    }
+  }
+
+  state.results = results;
+  renderResults(id, sheetName, col, query);
+}
+
+function renderResults(id, sheetName, col, query){
+  const state = states.get(id);
+  const card = document.getElementById(id);
+  const box = card.querySelector('.results');
+
+  if(!state.results.length){
+    box.innerHTML = `
+      <div class="empty">
+        <div style="font-size:28px">🔍</div>
+        <b>No se encontraron coincidencias.</b>
+        <div style="margin-top:6px">Hoja: ${esc(sheetName)} · Dato: ${esc(query)}</div>
+      </div>`;
+    return;
+  }
+
+  const ws = state.wb.Sheets[sheetName];
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  const headers = [];
+  for(let c=range.s.c;c<=range.e.c;c++){
+    const letter = XLSX.utils.encode_col(c);
+    const cell = ws[XLSX.utils.encode_cell({r:range.s.r,c})];
+    const header = cell && cell.v !== undefined && cell.v !== null && String(cell.v).trim() !== ''
+      ? String(cell.v) : letter;
+    headers.push(header);
+  }
+
+  let html = `
+    <div class="resultTitle">
+      Se encontraron <span class="badge">${state.results.length}</span> coincidencia(s)
+      · Hoja: <b>${esc(sheetName)}</b>
+    </div>
+    <div class="actions" style="margin:0 0 12px">
+      <button class="btn success copyAllBtn">📋 Copiar todas las filas</button>
+    </div>
+    <div class="tableWrap">
+    <table>
+      <thead><tr><th>Fila</th>`;
+
+  headers.forEach(h => html += `<th>${esc(h)}</th>`);
+  html += `<th class="copyCell">Acción</th></tr></thead><tbody>`;
+
+  state.results.forEach((result,i) => {
+    html += `<tr><td><b>${result.excelRow}</b></td>`;
+    result.row.forEach(v => html += `<td>${esc(v)}</td>`);
+    html += `<td class="copyCell"><button class="btn secondary copyBtn" data-index="${i}">📋 Copiar fila</button></td></tr>`;
+  });
+
+  html += `</tbody></table></div>
+    <div class="status">La búsqueda compara ignorando mayúsculas/minúsculas y espacios al inicio/final.</div>`;
+
+  box.innerHTML = html;
+
+  box.querySelector('.copyAllBtn').addEventListener('click', async () => {
+    const text = state.results.map(x => x.row.map(v => String(v ?? '')).join('\\t')).join('\\n');
+    await copyText(text, box.querySelector('.copyAllBtn'), '✓ Filas copiadas');
+  });
+
+  box.querySelectorAll('.copyBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const index = Number(btn.dataset.index);
+      const text = state.results[index].row.map(v => String(v ?? '')).join('\\t');
+      await copyText(text, btn, '✓ Copiada');
+    });
+  });
+}
+
+async function copyText(text, button, successText){
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+  const old=button.textContent;
+  button.textContent=successText;
+  setTimeout(()=>button.textContent=old,1500);
+}
+</script>
+</body>
+</html>
