@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ULTRA PRO DASHBOARD FIXED POLAR</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+<style>
+body{
+margin:0;
+font-family:Poppins;
+background: radial-gradient(circle at top, #eef2f7, #dbeafe);
+padding:20px;
+}
+
+.container{
+max-width:1200px;
+margin:auto;
+background:rgba(255,255,255,0.9);
+padding:20px;
+border-radius:16px;
+box-shadow:0 20px 50px rgba(0,0,0,.15);
+backdrop-filter: blur(8px);
+}
+
+h1{text-align:center;color:#1e3a8a;}
+
+.card{
+background:white;
+padding:15px;
+border-radius:14px;
+box-shadow:0 10px 25px rgba(0,0,0,.08);
+transition:0.3s;
+}
+.card:hover{transform:translateY(-3px);}
+
+.grid{
+display:grid;
+grid-template-columns:1fr 1fr 1fr;
+gap:15px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th{
+background:#2563eb;
+color:white;
+padding:10px;
+}
+
+td{
+text-align:center;
+padding:8px;
+border-bottom:1px solid #ddd;
+}
+
+button{
+background:linear-gradient(135deg,#2563eb,#1d4ed8);
+color:white;
+border:none;
+padding:10px;
+border-radius:10px;
+cursor:pointer;
+font-weight:bold;
+}
+
+button:hover{filter:brightness(1.1);}
+
+canvas{
+margin-top:20px;
+background:transparent;
+border-radius:12px;
+padding:10px;
+}
+</style>
+<style>
+.analysis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}.analysis-box{background:#f8fafc;padding:12px;border-radius:10px;border-left:4px solid #2563eb}.analysis-box strong{display:block;margin-bottom:4px}.analysis-text{line-height:1.55;color:#334155}.analysis-source{font-size:11px;color:#64748b;margin-top:12px}
+</style></head>
+
+<body>
+
+<div class="container">
+
+<h1>📊 ULTRA PRO DASHBOARD</h1>
+
+<div class="card">
+<input type="file" id="file">
+</div>
+
+<div class="grid">
+
+<div class="card">
+<h3>Columnas</h3>
+<div id="cols"></div>
+</div>
+
+<div class="card">
+<h3>Opciones</h3>
+
+<label>Certificación</label><br>
+<select id="examType">
+<option value="">Sin nivel</option>
+<option value="ielts">IELTS</option>
+<option value="cambridge">CAMBRIDGE</option>
+</select>
+
+<br><br>
+
+<label>Color base</label><br>
+<input type="color" id="color" value="#3b82f6">
+
+<br><br>
+
+<label>
+<input type="checkbox" id="customColors">
+Colores por columna
+</label>
+
+<div id="colorList"></div>
+
+<br><br>
+
+<label>Tamaño texto</label><br>
+<input type="range" id="globalFontSize" min="10" max="30" value="14">
+
+<br><br>
+
+<label>
+<input type="checkbox" id="showName" checked>
+Nombre columna
+</label>
+
+<br>
+
+<label>
+<input type="checkbox" id="showAvg" checked>
+Promedio
+</label>
+
+<br><br>
+
+<label>Título</label><br>
+<input type="text" id="chartTitle">
+
+<br><br>
+
+<label>Tipo de gráfica</label><br>
+<select id="type">
+<option value="bar">Barras</option>
+<option value="line">Línea</option>
+<option value="pie">Pie</option>
+<option value="doughnut">Dona</option>
+<option value="radar">Radar</option>
+<option value="polarArea">Polar</option>
+</select>
+
+<br><br>
+<label>Estilo de barras</label><br>
+<select id="barStyle">
+<option value="cylinder">🥫 Cilindro 3D</option>
+<option value="bevel">🧊 3D Biselado</option>
+<option value="classic">Clásico</option>
+</select>
+
+<br><br>
+
+<h4>🎨 ESTILO GLOBAL</h4>
+
+<label>Color contorno</label><br>
+<input type="color" id="borderColor" value="#0f172a">
+
+<br><br>
+
+<label>Color texto</label><br>
+<input type="color" id="textColor" value="#000000">
+
+<br><br>
+
+<label>Grosor línea / borde</label><br>
+<input type="range" id="borderWidth" min="1" max="10" value="2">
+
+<br><br>
+
+<button onclick="draw()">📊 Generar gráfica</button>
+<button onclick="updateTable()">📋 Actualizar tabla</button>
+<button onclick="copyPNG()">📋 Copiar PNG</button>
+<button onclick="downloadPNG()">⬇️ Descargar PNG</button>
+<button onclick="reset()">Reset</button>
+
+</div>
+
+<div class="card">
+<h3>Tabla</h3>
+<table>
+<thead>
+<tr>
+<th>Columna</th>
+<th>Prom</th>
+<th>Max</th>
+<th>Min</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+
+<div id="levelResults" style="display:none;margin-top:18px;">
+<h4 style="margin:0 0 10px;">📈 Resultados por nivel</h4>
+<div id="levelResultsContent"></div>
+</div>
+</div>
+
+</div>
+
+<h2 id="titleDisplay"></h2>
+
+<canvas id="chart"></canvas>
+<div id="performanceAnalysis" class="card" style="display:none;margin-top:25px;">
+<h3 style="margin-top:0;">📝 Análisis de desempeño</h3>
+<div id="analysisContent"></div>
+</div>
+
+</div>
+
+<script>
+
+Chart.defaults.backgroundColor = 'transparent';
+
+let data=[];
+let rawRows=[];
+let headers=[];
+let chart;
+
+/* 🔥 GRADIENT PRO REAL */
+function createGradient(ctx, chartArea, color){
+const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+gradient.addColorStop(0, color + "66");
+gradient.addColorStop(1, color);
+return gradient;
+}
+
+document.getElementById('file').addEventListener('change',load);
+
+function load(e){
+const file=e.target.files[0];
+const reader=new FileReader();
+
+reader.onload=function(ev){
+const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+const ws=wb.Sheets[wb.SheetNames[0]];
+const json=XLSX.utils.sheet_to_json(ws,{header:1});
+process(json);
+};
+
+reader.readAsArrayBuffer(file);
+}
+
+function process(json){
+
+data=[];
+document.getElementById('cols').innerHTML='';
+document.getElementById('table').innerHTML='';
+document.getElementById('colorList').innerHTML='';
+
+headers=json[0] || [];
+rawRows=json.slice(1);
+
+headers.forEach((h,i)=>{
+
+let vals=json.slice(1).map(r=>parseFloat(r[i])).filter(v=>!isNaN(v));
+if(vals.length==0)return;
+
+let avg=vals.reduce((a,b)=>a+b)/vals.length;
+let max=Math.max(...vals);
+let min=Math.min(...vals);
+
+data.push({name:h,avg,max,min,col:i});
+
+
+
+document.getElementById('cols').innerHTML += `
+<label>
+<input type="checkbox" value="${data.length-1}" checked>
+${h}
+</label><br>
+`;
+
+document.getElementById('colorList').innerHTML += `
+<div>
+<label>${h}</label>
+<input type="color" class="colColor" value="#3b82f6">
+</div>
+`;
+
+});
+}
+
+/* IELTS */
+function getIELTSLevel(v){
+if(v<=4.2) return 'BELOW B1';
+if(v<=5.4) return 'B1';
+if(v<=7.0) return 'B2';
+if(v<=8.1) return 'C1';
+return 'C2';
+}
+
+/* CAMBRIDGE */
+function getCambridgeLevel(v){
+let scale=[
+{ min: 0, max: 80, text: 'NOT REPORTED' },
+{ min: 80, max: 88.9, text: 'PRE A1 LOW' },
+{ min: 90, max: 95.9, text: 'PRE A1 MIDDLE' },
+{ min: 96, max: 99.9, text: 'PRE A1 HIGH' },
+{ min: 100, max: 109.9, text: 'A1 LOW' },
+{ min: 110, max: 114.9, text: 'A1 MIDDLE' },
+{ min: 115, max: 119.9, text: 'A1 HIGH' },
+{ min: 120, max: 129, text: 'A2 LOW' },
+{ min: 130, max: 135.9, text: 'A2 MIDDLE' },
+{ min: 136, max: 139.9, text: 'A2 HIGH' },
+{ min: 140, max: 149.9, text: 'B1 LOW' },
+{ min: 150, max: 155.9, text: 'B1 MIDDLE' },
+{ min: 156, max: 159.9, text: 'B1 HIGH' },
+{ min: 160, max: 169.9, text: 'B2 LOW' },
+{ min: 170, max: 176.9, text: 'B2 MIDDLE' },
+{ min: 177, max: 179.9, text: 'B2 HIGH' },
+{ min: 180, max: 189.9, text: 'C1 LOW' },
+{ min: 190, max: 196.9, text: 'C1 MIDDLE' },
+{ min: 197, max: 200, text: 'C1 HIGH' },
+{ min: 201, max: Infinity, text: 'C2' }
+];
+
+for(let s of scale){
+if(v>=s.min && v<=s.max) return s.text;
+}
+return '';
+}
+
+
+/* ===== EFECTO 3D PARA BARRAS ===== */
+const cylinder3DPlugin = {
+  id: 'cylinder3D',
+
+  afterDatasetsDraw(chart) {
+    if (chart.config.type !== 'bar') return;
+
+    const style = document.getElementById('barStyle')?.value || 'cylinder';
+    if (style === 'classic') return;
+
+    const ctx = chart.ctx;
+    const meta = chart.getDatasetMeta(0);
+    const ds = chart.data.datasets[0];
+
+    meta.data.forEach((bar, i) => {
+      const props = bar.getProps(['x','y','base','width'], true);
+      if (!props) return;
+
+      const x = props.x;
+      const top = Math.min(props.y, props.base);
+      const bottom = Math.max(props.y, props.base);
+      const w = Math.max(28, props.width * 0.92);
+      const left = x - w / 2;
+      const right = x + w / 2;
+      const h = Math.max(1, bottom - top);
+      const color = (Array.isArray(ds._barColors) ? ds._barColors[i] : null) ||
+                    (Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor) ||
+                    '#3b82f6';
+      const ry = Math.max(5, Math.min(13, w * .17));
+
+      ctx.save();
+
+      if (style === 'cylinder') {
+        // Cuerpo cilíndrico.
+        const g = ctx.createLinearGradient(0, bottom, 0, top);
+        g.addColorStop(0, '#ffffff');
+        g.addColorStop(.18, 'rgba(255,255,255,.92)');
+        g.addColorStop(.48, color + '88');
+        g.addColorStop(.78, color);
+        g.addColorStop(1, color);
+
+        ctx.fillStyle = g;
+        ctx.fillRect(left, top, w, h);
+
+        // Contorno.
+        ctx.strokeStyle = document.getElementById('borderColor').value;
+        ctx.lineWidth = Math.max(1, Number(document.getElementById('borderWidth').value) * .6);
+        ctx.beginPath();
+        ctx.moveTo(left, top);
+        ctx.lineTo(left, bottom);
+        ctx.moveTo(right, top);
+        ctx.lineTo(right, bottom);
+        ctx.stroke();
+
+        // Parte superior del cilindro.
+        const topG = ctx.createLinearGradient(0, top-ry, 0, top+ry);
+        topG.addColorStop(0, color);
+        topG.addColorStop(.65, color);
+        topG.addColorStop(1, 'rgba(255,255,255,.25)');
+
+        ctx.beginPath();
+        ctx.ellipse(x, top, w/2, ry, 0, 0, Math.PI*2);
+        ctx.fillStyle = topG;
+        ctx.fill();
+        ctx.stroke();
+
+        // Reflejo.
+        ctx.beginPath();
+        ctx.ellipse(x - w*.16, top-1, w*.13, ry*.55, 0, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,255,.28)';
+        ctx.fill();
+
+        // Base.
+        if (h > ry * 1.4) {
+          ctx.beginPath();
+          ctx.ellipse(x, bottom, w/2, ry*.72, 0, 0, Math.PI*2);
+          ctx.fillStyle = 'rgba(0,0,0,.13)';
+          ctx.fill();
+        }
+
+      } else {
+        // 3D biselado.
+        const d = Math.max(8, Math.min(18, w*.18));
+
+        ctx.beginPath();
+        ctx.moveTo(left, top+d);
+        ctx.lineTo(left+d, top);
+        ctx.lineTo(right+d, top);
+        ctx.lineTo(right, top+d);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(0,0,0,.28)';
+        ctx.fill();
+
+        const g = ctx.createLinearGradient(left, 0, right, 0);
+        g.addColorStop(0, 'rgba(0,0,0,.28)');
+        g.addColorStop(.28, color);
+        g.addColorStop(.52, 'rgba(255,255,255,.30)');
+        g.addColorStop(1, color);
+
+        ctx.fillStyle = g;
+        ctx.fillRect(left, top+d, w, Math.max(1, h-d));
+
+        ctx.strokeStyle = document.getElementById('borderColor').value;
+        ctx.lineWidth = Math.max(1, Number(document.getElementById('borderWidth').value) * .7);
+        ctx.strokeRect(left, top+d, w, Math.max(1, h-d));
+      }
+
+      ctx.restore();
+    });
+  }
+};
+
+/* ===== TABLA MANUAL ===== */
+function updateTable(){
+  const selected = [...document.querySelectorAll('#cols input:checked')];
+  const tbody = document.getElementById('table');
+
+  if (!selected.length) {
+    tbody.innerHTML = '<tr><td colspan="4">Selecciona al menos una columna.</td></tr>';
+    return;
+  }
+
+  showLevelResults();
+  generatePerformanceAnalysis();
+
+  tbody.innerHTML = selected.map(input => {
+    const s = data[Number(input.value)];
+    return `<tr>
+      <td>${s.name}</td>
+      <td>${s.avg.toFixed(1)}</td>
+      <td>${s.max.toFixed(1)}</td>
+      <td>${s.min.toFixed(1)}</td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('barStyle')?.addEventListener('change', ()=>{ if(chart) draw(); });
+
+
+function showLevelResults(){
+  const box=document.getElementById('levelResults');
+  const content=document.getElementById('levelResultsContent');
+  const selected=[...document.querySelectorAll('#cols input:checked')];
+
+  if(selected.length!==1){
+    box.style.display='none';
+    if(window.levelChart){window.levelChart.destroy();window.levelChart=null;}
+    content.innerHTML='';
+    return;
+  }
+
+  const item=data[Number(selected[0].value)];
+  if(!item) return;
+
+  const colIndex=item.col;
+  const name=item.name;
+  const exam=document.getElementById('examType').value;
+
+  if(!exam){
+    box.style.display='block';
+    if(window.levelChart){window.levelChart.destroy();window.levelChart=null;}
+    content.innerHTML='<div style="padding:12px;border-radius:10px;background:#f8fafc;color:#64748b;">Selecciona IELTS o CAMBRIDGE para calcular los porcentajes por nivel.</div>';
+    return;
+  }
+
+  const values=rawRows
+    .map(row=>parseFloat(row[colIndex]))
+    .filter(v=>Number.isFinite(v));
+
+  if(!values.length){
+    box.style.display='block';
+    if(window.levelChart){window.levelChart.destroy();window.levelChart=null;}
+    content.innerHTML='<div style="padding:12px;border-radius:10px;background:#f8fafc;color:#64748b;">No hay resultados numéricos en esta columna.</div>';
+    return;
+  }
+
+  const counts={};
+  values.forEach(v=>{
+    const level=exam==='ielts'?getIELTSLevel(v):getCambridgeLevel(v);
+    if(level) counts[level]=(counts[level]||0)+1;
+  });
+
+  const order=exam==='ielts'
+    ? ['BELOW B1','B1','B2','C1','C2']
+    : ['NOT REPORTED','PRE A1 LOW','PRE A1 MIDDLE','PRE A1 HIGH',
+       'A1 LOW','A1 MIDDLE','A1 HIGH',
+       'A2 LOW','A2 MIDDLE','A2 HIGH',
+       'B1 LOW','B1 MIDDLE','B1 HIGH',
+       'B2 LOW','B2 MIDDLE','B2 HIGH',
+       'C1 LOW','C1 MIDDLE','C1 HIGH','C2'];
+
+  const rows=order.filter(level=>counts[level]).map(level=>({
+    level:level,
+    n:counts[level],
+    pct:(counts[level]/values.length)*100
+  }));
+
+  box.style.display='block';
+  if(window.levelChart){window.levelChart.destroy();window.levelChart=null;}
+
+  content.innerHTML=`
+    <div style="margin-bottom:10px;font-size:13px;color:#475569;">
+      <strong>${name}</strong> · ${values.length} resultados · ${exam.toUpperCase()}
+    </div>
+    <div class="card" style="padding:12px;margin:0;">
+      <div style="height:380px;position:relative;">
+        <canvas id="levelChart"></canvas>
+      </div>
+      <div style="margin-top:12px;text-align:center;">
+        <button type="button" onclick="copyLevelPNG()">📋 Copiar PNG</button>
+        <button type="button" onclick="downloadLevelPNG()">⬇️ Descargar PNG</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;margin-top:14px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th style="padding:8px;background:#2563eb;color:white;">Nivel</th>
+          <th style="padding:8px;background:#2563eb;color:white;">Resultados</th>
+          <th style="padding:8px;background:#2563eb;color:white;">Porcentaje</th>
+        </tr></thead>
+        <tbody>${rows.map(r=>`
+          <tr>
+            <td style="padding:8px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${r.level}</td>
+            <td style="padding:8px;border-bottom:1px solid #ddd;text-align:center;">${r.n}</td>
+            <td style="padding:8px;border-bottom:1px solid #ddd;text-align:center;font-weight:700;">${r.pct.toFixed(1)}%</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  const canvas=document.getElementById('levelChart');
+  if(!canvas) return;
+
+  const base=document.getElementById('color').value;
+  const borderColor=document.getElementById('borderColor').value;
+  const borderWidth=parseInt(document.getElementById('borderWidth').value)||2;
+  const textColor=document.getElementById('textColor').value;
+  const fontSize=parseInt(document.getElementById('globalFontSize').value)||14;
+  const custom=[...document.querySelectorAll('.colColor')].map(x=>x.value);
+  const barColor=document.getElementById('customColors').checked?(custom[Number(selected[0].value)]||base):base;
+  const style=document.getElementById('barStyle')?.value||'cylinder';
+
+  const level3D={
+    id:'level3D',
+    afterDatasetsDraw(chart){
+      if(style==='classic') return;
+      const ctx=chart.ctx,meta=chart.getDatasetMeta(0);
+
+      meta.data.forEach(bar=>{
+        const p=bar.getProps(['x','y','base','width'],true);
+        if(!p) return;
+
+        const x=p.x,top=Math.min(p.y,p.base),bottom=Math.max(p.y,p.base);
+        const w=Math.max(28,p.width*.92),left=x-w/2;
+        const h=Math.max(1,bottom-top),ry=Math.max(5,Math.min(13,w*.17));
+
+        ctx.save();
+
+        if(style==='cylinder'){
+          const g=ctx.createLinearGradient(0,bottom,0,top);
+          g.addColorStop(0,'#ffffff');
+          g.addColorStop(.18,'rgba(255,255,255,.92)');
+          g.addColorStop(.48,barColor+'88');
+          g.addColorStop(.78,barColor);
+          g.addColorStop(1,barColor);
+          ctx.fillStyle=g;
+          ctx.fillRect(left,top,w,h);
+
+          ctx.strokeStyle=borderColor;
+          ctx.lineWidth=Math.max(1,borderWidth*.6);
+          ctx.beginPath();
+          ctx.moveTo(left,top);ctx.lineTo(left,bottom);
+          ctx.moveTo(left+w,top);ctx.lineTo(left+w,bottom);
+          ctx.stroke();
+
+          const tg=ctx.createLinearGradient(0,top-ry,0,top+ry);
+          tg.addColorStop(0,barColor);
+          tg.addColorStop(.65,barColor);
+          tg.addColorStop(1,'rgba(255,255,255,.25)');
+          ctx.beginPath();
+          ctx.ellipse(x,top,w/2,ry,0,0,Math.PI*2);
+          ctx.fillStyle=tg;ctx.fill();ctx.stroke();
+
+          if(h>ry*1.4){
+            ctx.beginPath();
+            ctx.ellipse(x,bottom,w/2,ry*.72,0,0,Math.PI*2);
+            ctx.fillStyle='rgba(0,0,0,.13)';ctx.fill();
+          }
+        }else{
+          const d=Math.max(8,Math.min(18,w*.18));
+          ctx.beginPath();
+          ctx.moveTo(left,top+d);ctx.lineTo(left+d,top);
+          ctx.lineTo(left+w+d,top);ctx.lineTo(left+w,top+d);
+          ctx.closePath();
+          ctx.fillStyle='rgba(0,0,0,.28)';ctx.fill();
+
+          const g=ctx.createLinearGradient(0,bottom,0,top);
+          g.addColorStop(0,'#ffffff');
+          g.addColorStop(.48,barColor+'aa');
+          g.addColorStop(1,barColor);
+          ctx.fillStyle=g;
+          ctx.fillRect(left,top+d,w,Math.max(1,h-d));
+        }
+        ctx.restore();
+      });
+    }
+  };
+
+  window.levelChart=new Chart(canvas,{
+    type:'bar',
+    data:{
+      labels:rows.map(r=>r.level),
+      datasets:[{
+        label:'Porcentaje',
+        data:rows.map(r=>Number(r.pct.toFixed(1))),
+        backgroundColor:'rgba(0,0,0,0)',
+        borderColor:'rgba(0,0,0,0)',
+        borderWidth:0
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      layout:{padding:{top:55,right:18,left:10,bottom:10}},
+      scales:{
+        y:{
+          min:0,max:100,
+          ticks:{color:textColor,callback:v=>v+'%'},
+          grid:{color:'rgba(0,0,0,.08)'}
+        },
+        x:{ticks:{color:textColor,font:{size:fontSize,weight:'bold'}}}
+      },
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          color:textColor,anchor:'end',align:'top',offset:8,clip:false,
+          font:{size:fontSize,weight:'bold'},
+          formatter:v=>v.toFixed(1)+'%'
+        }
+      }
+    },
+    plugins:[ChartDataLabels,level3D]
+  });
+}
+
+
+function normH(v){return String(v??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');}
+function skillCol(skill){
+ const a={Listening:['listening','comprensionauditiva','auditiva'],Reading:['reading','comprensionlectora','lectura'],Writing:['writing','expresionescrita','escrita','escritura'],Speaking:['speaking','expresionoral','oral'],Overall:['overall','overallband','overallscore','bandscore','band','ieltsoverallbandscore','ieltsbandscore','global','promedio','total']}[skill];
+ for(let i=0;i<headers.length;i++){let h=normH(headers[i]);if(a.some(x=>h===normH(x)||h.includes(normH(x))))return i;}
+ return -1;
+}
+function colAvg(i){
+ if(i<0)return null;
+ let v=rawRows.map(r=>parseFloat(r[i])).filter(Number.isFinite);
+ return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;
+}
+function ieltsDesc(v){
+ if(v>=8)return 'very strong command of English, with only minor lapses.';
+ if(v>=7)return 'good command of English, generally effective despite some inaccuracies.';
+ if(v>=6)return 'competent command of English, with room to improve accuracy and flexibility.';
+ if(v>=5)return 'modest command of English; communication is possible in familiar contexts, but further development is needed.';
+ return 'limited command of English; substantial development is recommended.';
+}
+function cambDesc(v){
+ let l=getCambridgeLevel(v);
+ return ({C2:'exceptional command of English.',C1:'advanced command suitable for demanding academic and professional contexts.','B2 HIGH':'strong upper-intermediate performance.','B2 MIDDLE':'solid upper-intermediate performance with some areas to develop.','B2 LOW':'developing upper-intermediate performance.','B1 HIGH':'strong intermediate performance.','B1 MIDDLE':'intermediate performance with room to improve accuracy and range.','B1 LOW':'developing intermediate performance.','A2 HIGH':'upper-elementary performance for familiar situations.','A2 MIDDLE':'elementary performance with developing control.','A2 LOW':'basic performance requiring further development.'}[l]||('performance at approximately '+l+'.'));
+}
+function generatePerformanceAnalysis(){
+ const p=document.getElementById('performanceAnalysis'),c=document.getElementById('analysisContent');
+ if(!p||!c)return;
+ const exam=document.getElementById('examType').value;
+ if(!exam){p.style.display='none';return;}
+ const skills=['Listening','Reading','Writing','Speaking'];
+ const vals=skills.map(s=>({skill:s,avg:colAvg(skillCol(s))})).filter(x=>x.avg!==null);
+ const overall=colAvg(skillCol('Overall'));
+ if(!vals.length&&!Number.isFinite(overall)){p.style.display='none';return;}
+ const fmt=v=>Number(v).toFixed(1);
+ const strong=vals.length?[...vals].sort((a,b)=>b.avg-a.avg)[0]:null;
+ const weak=vals.length?[...vals].sort((a,b)=>a.avg-b.avg)[0]:null;
+ const cards=vals.map(x=>`<div class="analysis-box"><strong>${x.skill}</strong>${exam==='ielts'?'Band '+fmt(x.avg):getCambridgeLevel(x.avg)+' ('+fmt(x.avg)+')'}</div>`).join('');
+ let ol=overall===null?'N/A':(exam==='ielts'?'Band '+fmt(overall):getCambridgeLevel(overall)+' ('+fmt(overall)+')');
+ let desc=overall===null?'':(exam==='ielts'?ieltsDesc(overall):cambDesc(overall));
+ const advice={
+  Listening:{en:'Practice with authentic audio from different accents, listen for key details, and review missed answers to identify recurring problems.',es:'Practicar con audios auténticos de diferentes acentos, identificar detalles clave y revisar los errores para detectar problemas recurrentes.'},
+  Reading:{en:'Read a variety of authentic texts, practice skimming and scanning, and build vocabulary from context rather than translating every word.',es:'Leer distintos textos auténticos, practicar skimming y scanning, y ampliar el vocabulario a partir del contexto en lugar de traducir cada palabra.'},
+  Writing:{en:'Write regularly under time limits, focus on clear organization and paragraph development, and review grammar, vocabulary range, and accuracy.',es:'Escribir con frecuencia bajo límite de tiempo, enfocarse en una organización clara y desarrollo de párrafos, y revisar gramática, vocabulario y precisión.'},
+  Speaking:{en:'Practice speaking regularly, record short responses, develop ideas with examples, and work on fluency, pronunciation, grammar, and vocabulary range.',es:'Practicar expresión oral con frecuencia, grabar respuestas cortas, desarrollar ideas con ejemplos y trabajar fluidez, pronunciación, gramática y variedad de vocabulario.'}
+ };
+ const strength={
+  Listening:{en:'This result suggests a relative strength in understanding spoken English, especially when the task and context are familiar.',es:'Este resultado sugiere una fortaleza relativa para comprender el inglés hablado, especialmente cuando la tarea y el contexto son familiares.'},
+  Reading:{en:'This result suggests a relative strength in understanding written English and extracting relevant information from texts.',es:'Este resultado sugiere una fortaleza relativa para comprender el inglés escrito y extraer información relevante de los textos.'},
+  Writing:{en:'This result suggests a relative strength in expressing ideas in written English with an appropriate level of control for the reported score.',es:'Este resultado sugiere una fortaleza relativa para expresar ideas por escrito con un nivel de control acorde con la calificación obtenida.'},
+  Speaking:{en:'This result suggests a relative strength in communicating ideas orally with a level of fluency and control appropriate to the reported score.',es:'Este resultado sugiere una fortaleza relativa para comunicar ideas oralmente con un nivel de fluidez y control acorde con la calificación obtenida.'}
+ };
+ let en=`The overall result is <strong>${ol}</strong>. `;
+ let es=`El resultado general es <strong>${ol}</strong>. `;
+ if(strong){
+   en+=`The strongest skill is <strong>${strong.skill}</strong> (${fmt(strong.avg)}). ${strength[strong.skill]?.en||''} `;
+   en+=`The skill that needs the most attention is <strong>${weak.skill}</strong> (${fmt(weak.avg)}). ${advice[weak.skill]?.en||''} `;
+   es+=`La habilidad más fuerte es <strong>${strong.skill}</strong> (${fmt(strong.avg)}). ${strength[strong.skill]?.es||''} `;
+   es+=`La habilidad que requiere mayor atención es <strong>${weak.skill}</strong> (${fmt(weak.avg)}). ${advice[weak.skill]?.es||''} `;
+ }
+ en+=desc+' ';
+ es+=(exam==='ielts'?'El perfil refleja un '+desc:'El desempeño corresponde a '+desc)+' ';
+ if(strong&&weak&&strong.avg-weak.avg>=(exam==='ielts'?1:10)){
+   en+=`Because there is a noticeable gap between the strongest and weakest skills, targeted practice in ${weak.skill} may help create a more balanced profile and improve the overall result.`;
+   es+=`Debido a que existe una diferencia notable entre la habilidad más fuerte y la más baja, una práctica específica en ${weak.skill} puede ayudar a equilibrar el perfil y mejorar el resultado general.`;
+ }else{
+   en+='The four skills show a relatively consistent profile; maintaining the stronger areas while gradually improving the weakest skill would be beneficial.';
+   es+='Las cuatro habilidades muestran un perfil relativamente consistente; conviene mantener las áreas fuertes y mejorar gradualmente la habilidad más baja.';
+ }
+ p.style.display='block';
+ c.innerHTML=`<div class="analysis-grid">${cards}</div><h4>English summary</h4><p class="analysis-text">${en}</p><h4>Resumen en español</h4><p class="analysis-text">${es}</p><div class="analysis-source">Overall/Overall Band Score/Band Score are recognized as the overall result field for IELTS. For Cambridge, the analysis uses the Cambridge English Scale.</div>`;
+}
+
+function draw(){
+
+let sel=[...document.querySelectorAll('#cols input:checked')].map(x=>data[x.value]);
+if(sel.length==0)return;
+
+let base=document.getElementById('color').value;
+let useCustom=document.getElementById('customColors').checked;
+let customColors=[...document.querySelectorAll('.colColor')].map(i=>i.value);
+
+let borderColor=document.getElementById('borderColor').value;
+let borderWidth=parseInt(document.getElementById('borderWidth').value);
+let textColor=document.getElementById('textColor').value;
+let fontSize=parseInt(document.getElementById('globalFontSize').value);
+
+let exam=document.getElementById('examType').value;
+
+let labels=sel.map(s=>s.name);
+let values=sel.map(s=>+s.avg.toFixed(1));
+
+let colors = useCustom ? customColors : labels.map(()=>base);
+
+if(chart)chart.destroy();
+
+chart=new Chart(document.getElementById('chart'),{
+
+type:document.getElementById('type').value,
+
+data:{
+labels,
+datasets:[{
+label:'Promedio',
+_barColors:colors,
+data:values,
+backgroundColor:(ctx)=>{
+  if(ctx.chart.config.type === 'bar'){
+    return 'rgba(0,0,0,0)';
+  }
+  const chart = ctx.chart;
+  const {chartArea, ctx: c} = chart;
+  if(!chartArea) return base;
+  return createGradient(c, chartArea, colors[ctx.dataIndex] || base);
+},
+borderColor:(ctx)=>{
+  if(ctx.chart.config.type === 'bar') return 'rgba(0,0,0,0)';
+  return borderColor;
+},
+borderWidth:(ctx)=>{
+  if(ctx.chart.config.type === 'bar') return 0;
+  return borderWidth;
+}
+}]
+},
+
+options:{
+responsive:true,
+
+plugins:{
+legend:{display:true},
+
+datalabels:{
+color:textColor,
+anchor:'end',
+align:'top',
+offset:8,
+clamp:false,
+clip:false,
+font:{size:fontSize,weight:'bold'},
+
+formatter:(value,ctx)=>{
+
+let name = ctx.chart.data.labels[ctx.dataIndex];
+let text='';
+
+if(document.getElementById('showName').checked){
+text += name;
+}
+
+if(document.getElementById('showAvg').checked){
+text += (text?'\n':'') + value.toFixed(1);
+}
+
+if(exam==='ielts'){
+text += '\n' + getIELTSLevel(value);
+}
+
+if(exam==='cambridge'){
+text += '\n' + getCambridgeLevel(value);
+}
+
+return text;
+}
+}
+}
+},
+
+plugins:[ChartDataLabels, cylinder3DPlugin]
+
+});
+
+showLevelResults();
+generatePerformanceAnalysis();
+
+}
+
+
+function downloadPNG(){
+  if(!chart){
+    alert('Primero genera la gráfica.');
+    return;
+  }
+
+  const link = document.createElement('a');
+  link.download = 'grafica.png';
+  link.href = chart.toBase64Image('image/png', 1);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+async function copyPNG(){
+  if(!chart){
+    alert('Primero genera la gráfica.');
+    return;
+  }
+
+  try{
+    const blob = await new Promise(resolve =>
+      chart.canvas.toBlob(resolve, 'image/png', 1)
+    );
+
+    if(!blob) throw new Error('No se pudo crear el PNG.');
+
+    if(!navigator.clipboard || !window.ClipboardItem){
+      throw new Error('Portapapeles de imágenes no disponible.');
+    }
+
+    await navigator.clipboard.write([
+      new ClipboardItem({'image/png': blob})
+    ]);
+
+    alert('PNG copiado al portapapeles.');
+  }catch(error){
+    console.error(error);
+    alert('No se pudo copiar el PNG. En Chrome o Edge, permite el acceso al portapapeles para esta página.');
+  }
+}
+
+
+function downloadLevelPNG(){
+  if(!window.levelChart){
+    alert('Primero genera la gráfica de una sola columna.');
+    return;
+  }
+
+  try{
+    const link=document.createElement('a');
+    link.download='resultados_por_nivel.png';
+    link.href=window.levelChart.toBase64Image('image/png',1);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }catch(e){
+    console.error(e);
+    alert('No se pudo descargar la gráfica como PNG.');
+  }
+}
+
+async function copyLevelPNG(){
+  if(!window.levelChart){
+    alert('Primero genera la gráfica de una sola columna.');
+    return;
+  }
+
+  try{
+    const blob=await new Promise(resolve =>
+      window.levelChart.canvas.toBlob(resolve,'image/png',1)
+    );
+
+    if(!blob) throw new Error('No se pudo crear el PNG.');
+
+    if(!navigator.clipboard || !window.ClipboardItem){
+      throw new Error('El navegador no permite copiar imágenes al portapapeles.');
+    }
+
+    await navigator.clipboard.write([
+      new ClipboardItem({'image/png':blob})
+    ]);
+
+    alert('Gráfica copiada como PNG.');
+  }catch(e){
+    console.error(e);
+    alert('No se pudo copiar el PNG. Usa Chrome o Edge y permite el acceso al portapapeles.');
+  }
+}
+
+</script>
+
+</body>
+</html>
