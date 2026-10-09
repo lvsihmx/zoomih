@@ -43,7 +43,8 @@ td.blank{background:#fafbfd}
 <h2>1. Cargar archivo de alumnos</h2>
 <label for="file">Archivo Excel (.xlsx, .xls) o CSV</label>
 <input id="file" type="file" accept=".xlsx,.xls,.csv">
-<p class="small">Se leerá la primera hoja. La fila 1 debe contener los encabezados: “Nombre completo del alumno”, “Grado que cursa” y “Examen a presentar”. Los encabezados se detectan por nombre; si no se reconocen, se usarán las tres primeras columnas.</p>
+<p class="small">Se leerá la primera hoja. Después de cargar el archivo, selecciona las columnas que contienen nombre, grupo y nivel/examen. La fila 1 se usa como encabezado.</p>
+<div id="columnSelectors" class="grid hidden"><div><label for="colName">Columna del nombre</label><select id="colName"></select></div><div><label for="colGrade">Columna del grupo</label><select id="colGrade"></select></div><div><label for="colExam">Columna del nivel / examen</label><select id="colExam"></select></div></div>
 <div id="sourceStatus" class="status">Todavía no has cargado un archivo.</div>
 </div>
 <div class="card">
@@ -127,7 +128,7 @@ const LEVELS = [
 "IELTS Practice Test 1 (General Training) (Responsive)","IELTS Practice Test 2 (General Training) (Responsive)",
 "C1 Practice Test 1","C1 Practice Test 2"
 ];
-let sourceRows=[], sourceHeaders=[], generatedRows=[], mappings={};
+let sourceRows=[], sourceHeaders=[], sourceRawRows=[], sourceFileName="", generatedRows=[], mappings={};
 const manualCounts={};
 LEVELS.forEach(level=>manualCounts[level]=0);
 const COPY_LIMIT=490;
@@ -184,6 +185,24 @@ function getSourceColumns(headers){
   if(exam<0) exam=2;
   return {name,grade,exam};
 }
+function updateSourceColumns(){
+  const cols={name:Number($("colName").value),grade:Number($("colGrade").value),exam:Number($("colExam").value)};
+  sourceRows=sourceRawRows.map((r,i)=>({
+    name:String(r[cols.name]??"").trim(),
+    grade:String(r[cols.grade]??"").trim(),
+    exam:String(r[cols.exam]??"").trim(),
+    sourceRow:i+2
+  })).filter(r=>r.name);
+  const unique=[...new Set(sourceRows.map(r=>r.exam).filter(Boolean))];
+  const previous=mappings;
+  mappings={};unique.forEach(e=>mappings[e]=previous[e]||defaultLevel(e));
+  renderMappings();
+  $("sourceStatus").textContent=`Archivo: ${sourceFileName}\nAlumnos detectados: ${sourceRows.length}\nNiveles / exámenes distintos: ${unique.length}\nColumnas: nombre=${XLSX.utils.encode_col(cols.name)}, grupo=${XLSX.utils.encode_col(cols.grade)}, nivel=${XLSX.utils.encode_col(cols.exam)}.`;
+  generatedRows=[];
+  ["download","downloadSimple","copy","copyNext","resetCopy","selectAll"].forEach(id=>$(id).disabled=true);
+  $("resultStatus").textContent="Columnas configuradas. Haz clic en Generar tabla destino para actualizar el resultado.";
+}
+["colName","colGrade","colExam"].forEach(id=>$(id).addEventListener("change",updateSourceColumns));
 $("file").addEventListener("change", async e=>{
   const file=e.target.files[0]; if(!file)return;
   if(typeof XLSX==="undefined"){ $("sourceStatus").textContent="No se pudo inicializar la librería integrada para leer Excel. Verifica que el archivo HTML esté completo."; return; }
@@ -200,17 +219,23 @@ $("file").addEventListener("change", async e=>{
     }
     if(!rows.length) throw new Error("El archivo no contiene filas.");
     sourceHeaders=(rows[0]||[]).map(x=>String(x??"").trim());
+    sourceRawRows=rows.slice(1);
+    sourceFileName=file.name;
     const cols=getSourceColumns(sourceHeaders);
-    sourceRows=rows.slice(1).filter(r=>r.some(c=>String(c??"").trim()!=="")).map((r,i)=>({
-      name:String(r[cols.name]??"").trim(),
-      grade:String(r[cols.grade]??"").trim(),
-      exam:String(r[cols.exam]??"").trim(),
-      sourceRow:i+2
-    })).filter(r=>r.name);
-    const unique=[...new Set(sourceRows.map(r=>r.exam).filter(Boolean))];
-    mappings={}; unique.forEach(e=>mappings[e]=defaultLevel(e));
-    renderMappings();
-    $("sourceStatus").textContent=`Archivo: ${file.name}\nAlumnos detectados: ${sourceRows.length}\nExámenes distintos: ${unique.length}\nColumnas utilizadas: nombre="${sourceHeaders[cols.name]||"columna 1"}", grado="${sourceHeaders[cols.grade]||"columna 2"}", examen="${sourceHeaders[cols.exam]||"columna 3"}".`;
+    const maxCols=Math.max(sourceHeaders.length,...rows.map(r=>r.length));
+    ["colName","colGrade","colExam"].forEach(id=>{
+      const select=$(id); select.innerHTML="";
+      for(let i=0;i<maxCols;i++){
+        const opt=document.createElement("option");opt.value=i;
+        opt.textContent=`${XLSX.utils.encode_col(i)} — ${sourceHeaders[i]||"Sin encabezado"}`;
+        select.appendChild(opt);
+      }
+    });
+    $("colName").value=cols.name;
+    $("colGrade").value=cols.grade;
+    $("colExam").value=cols.exam;
+    $("columnSelectors").classList.remove("hidden");
+    updateSourceColumns();
     $("generate").disabled=false;
     $("applyLevels").disabled=false;
     generatedRows=[];
