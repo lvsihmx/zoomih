@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Generador Google Apps Script — Offline</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#eef2f7;color:#17202a}
+header{background:#0b3b78;color:white;padding:22px 28px}
+header h1{margin:0;font-size:24px}
+header p{margin:6px 0 0;opacity:.9}
+.app{max-width:1450px;margin:auto;padding:20px;display:grid;grid-template-columns:minmax(480px,1fr) minmax(420px,1fr);gap:20px}
+.card{background:white;border-radius:14px;padding:20px;box-shadow:0 3px 14px rgba(0,0,0,.08);margin-bottom:18px}
+h2{font-size:18px;margin:0 0 15px;color:#0b3b78}
+h3{font-size:15px;margin:18px 0 8px}
+label{display:block;font-weight:bold;margin:10px 0 5px}
+input,select,textarea{width:100%;padding:10px;border:1px solid #c9d1dc;border-radius:8px;font:inherit;background:#fff}
+textarea{resize:vertical}
+button{border:0;border-radius:8px;padding:10px 14px;font-weight:bold;cursor:pointer}
+.primary{background:#0b3b78;color:#fff}
+.secondary{background:#e8eef7;color:#0b3b78}
+.danger{background:#fee2e2;color:#991b1b}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.full{grid-column:1/-1}
+.field-row,.file-row{border:1px solid #dbe2ea;border-radius:10px;padding:12px;margin:9px 0;background:#fafcff}
+.field-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.small{font-size:12px;color:#667085;margin-top:5px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.preview-shell{position:sticky;top:15px}
+#previewFrame{width:100%;height:760px;border:1px solid #ccd5e0;border-radius:12px;background:#eef2f7}
+.badge{display:inline-block;padding:4px 8px;border-radius:20px;background:#e8eef7;color:#0b3b78;font-size:12px}
+.cc-row{display:flex;gap:7px;margin:6px 0}
+.cc-row input{flex:1}
+@media(max-width:950px){.app{grid-template-columns:1fr}.preview-shell{position:static}#previewFrame{height:650px}}
+</style>
+</head>
+<body>
+<header>
+<h1>Generador de formularios Google Apps Script</h1>
+<p>Genera Code.gs e Index.html desde un solo archivo, sin internet.</p>
+</header>
+
+<div class="app">
+<section>
+<div class="card">
+<h2>1. Configuración general</h2>
+<div class="row">
+<div>
+<label>Título del formulario</label>
+<input id="title" value="Registro de información">
+</div>
+<div>
+<label>Texto del botón</label>
+<input id="buttonText" value="Enviar información">
+</div>
+</div>
+
+<label>Tipo de formulario</label>
+<select id="mode">
+<option value="info">Solo capturar información</option>
+<option value="files">Capturar información y subir archivos</option>
+</select>
+
+<label>Diseño del HTML generado</label>
+<select id="design">
+<option value="steps">Registro por pasos</option>
+<option value="classic">Clásico</option>
+</select>
+
+<label>Logo (opcional)</label>
+<input id="logoFile" type="file" accept="image/*">
+<div class="small">El logo seleccionado se incrustará dentro de Index.html. No necesitará una URL externa ni un archivo separado.</div>
+<input id="logoData" type="hidden">
+
+<label>URL del Google Apps Script desplegado (opcional)</label>
+<input id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+<div class="small">El generador no necesita internet. El formulario generado usará esta URL cuando lo publiques en Apps Script.<div class="full" style="margin-top:12px">
+<label>¿Dónde se alojará el HTML generado?</label>
+<select id="hosting">
+<option value="apps">Google Apps Script</option>
+<option value="github">GitHub Pages / GitHub</option>
+</select>
+<div class="small">Code.gs siempre se instala en Google Apps Script. Con GitHub, Index.html enviará los datos al Web App de Apps Script.</div>
+<label><input id="useSheet" type="checkbox" checked style="width:auto"> Guardar información en Google Sheets</label>
+<label><input id="useDrive" type="checkbox" style="width:auto"> Guardar archivos en Google Drive</label>
+<label><input id="mergeUploads" type="checkbox" checked style="width:auto"> Integrar todos los archivos subidos en una sola imagen</label>
+<div class="small">Cada archivo se convierte en una página/imagen y todos se unen en un único archivo JPG o PDF visual. El archivo final conserva el nombre Nombre_Escuela_Examen.</div>
+<label><input id="useEmail" type="checkbox" style="width:auto"> Mandar correo de confirmación</label>
+</div>
+</div>
+</div>
+
+<div class="card">
+<h2>2. Campos del formulario <span class="badge">hasta 30</span></h2>
+<div id="fields"></div>
+<div class="actions">
+<button type="button" class="secondary" id="addField">＋ Agregar campo</button>
+<button type="button" class="secondary" id="add10">＋ Agregar 10</button>
+</div>
+</div>
+
+<div class="card" id="filesCard" style="display:none">
+<h2>3. Archivos</h2>
+<div class="small">Define cuántos archivos puede subir el usuario y qué formatos acepta.</div>
+<div id="fileTypes"></div>
+<div class="actions">
+<button type="button" class="secondary" id="addFileType">＋ Agregar tipo de archivo</button>
+</div>
+</div>
+
+<div class="card">
+<h2>4. Google Drive y Google Sheets</h2>
+<label>Link del Google Sheets donde se guardarán los datos</label>
+<input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+
+<label>Nombre de la hoja</label>
+<input id="sheetName" value="Respuestas">
+
+<label>Link de la carpeta de Google Drive</label>
+<input id="folderUrl" placeholder="https://drive.google.com/drive/folders/...">
+
+<label>Nombre de la carpeta de Google Drive (si no tienes el link)</label>
+<input id="folderName" placeholder="Nombre de la carpeta">
+<hr style="border:0;border-top:1px solid #ddd;margin:18px 0">
+<label><input id="schoolFolders" type="checkbox" style="width:auto"> Guardar los archivos en una subcarpeta según la escuela</label>
+<div id="schoolFolderBox" style="display:none">
+<div class="small">La carpeta indicada arriba será la carpeta raíz. Para cada escuela se buscará una subcarpeta con su nombre; si no existe, se creará automáticamente dentro de la raíz.</div>
+<label>Campo que contiene la escuela</label><select id="schoolField"></select><div id="schoolPreview" class="small">Campo de escuela seleccionado: —</div>
+</div>
+<h3>Nombre de los archivos</h3>
+<div class="small">Formato: <b>Nombre_Escuela_Examen.ext</b></div>
+<label>Campo que contiene el nombre</label><select id="nameField"></select>
+<label>Campo que contiene el examen</label><select id="examField"></select>
+</div>
+
+<div class="card">
+<h2>5. Correo después de un registro exitoso</h2>
+<label>¿Enviar correo?</label>
+<select id="sendEmail">
+<option value="no">No</option>
+<option value="yes">Sí</option>
+</select>
+
+<div id="emailBox" style="display:none">
+<label>Origen del correo principal</label>
+<select id="emailSource">
+<option value="form">Tomarlo del mismo formulario</option>
+<option value="fixed">Correo fijo</option>
+</select>
+
+<div id="emailFormBox">
+<label>Campo del formulario que contiene el correo</label>
+<select id="emailField"></select>
+</div>
+
+<div id="emailFixedBox" style="display:none">
+<label>Correo fijo destinatario</label>
+<input id="emailTo" placeholder="correo@ejemplo.com">
+</div>
+
+<label>Copias fijas (CC), hasta 10</label>
+<div id="ccList"></div>
+<button type="button" class="secondary" id="addCc">＋ Agregar CC</button>
+
+<label>Título / asunto del correo</label>
+<input id="emailSubject" value="Registro exitoso">
+
+<label>Cuerpo del correo</label>
+<textarea id="emailBody" rows="8">Hola,
+
+Se realizó correctamente el registro de <Nombre completo>.
+
+Correo: <Correo>
+Grupo: <Grupo>
+Nivel: <Nivel>
+
+Gracias.</textarea>
+<div class="small">Usa &lt;Nombre del campo&gt; para insertar datos capturados en el formulario.</div>
+</div>
+</div>
+
+<div class="card">
+<h2>6. Generar archivos</h2>
+<div class="actions">
+<button type="button" class="primary" id="generate">⬇ Generar Code.gs + Index.html</button>
+<button type="button" class="secondary" id="reset">Restablecer</button>
+</div>
+<div id="message" class="small"></div>
+</div>
+</section>
+
+<section class="preview-shell">
+<div class="card">
+<h2>Vista previa en vivo</h2>
+<iframe id="previewFrame" title="Vista previa"></iframe>
+</div>
+</section>
+</div>
+
+<script>
+"use strict";
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+function addField(data){
+  const box=$("fields");
+  if(box.children.length>=30){alert("Máximo 30 campos.");return;}
+  data=data||{label:"",type:"text",required:false,options:""};
+  const r=document.createElement("div");
+  r.className="field-row";
+  r.innerHTML=`
+    <div class="field-head"><b>Campo <span class="num"></span></b>
+      <button type="button" class="danger del">Eliminar</button></div>
+    <div class="row">
+      <div><label>Nombre / etiqueta</label><input class="label" value="${esc(data.label)}" placeholder="Ej. Nombre completo"></div>
+      <div><label>Tipo</label><select class="type">
+        <option value="text">Texto</option><option value="email">Correo</option>
+        <option value="tel">Teléfono</option><option value="number">Número</option>
+        <option value="date">Fecha</option><option value="time">Hora</option>
+        <option value="textarea">Texto largo</option><option value="select">Lista</option>
+        <option value="checkbox">Casilla</option>
+      </select></div>
+    </div>
+    <label><input class="req" type="checkbox" style="width:auto"> Campo obligatorio</label>
+    <div class="optionsBox" style="display:none"><label>Opciones de la lista</label><input class="options" placeholder="Opción 1, Opción 2, Opción 3"></div>`;
+  box.appendChild(r);
+  r.querySelector(".type").value=data.type;
+  r.querySelector(".req").checked=!!data.required;
+  r.querySelector(".options").value=data.options||"";
+  r.querySelector(".del").onclick=()=>{r.remove();renumber();refreshEmailFields();updatePreview()};
+  r.querySelectorAll("input,select").forEach(e=>e.addEventListener("input",()=>{refreshEmailFields();updatePreview()}));
+  r.querySelector(".type").onchange=()=>{r.querySelector(".optionsBox").style.display=r.querySelector(".type").value==="select"?"block":"none";refreshEmailFields();updatePreview()};
+  r.querySelector(".optionsBox").style.display=data.type==="select"?"block":"none";
+  renumber();refreshEmailFields();refreshFileNameFields();updatePreview();
+}
+function renumber(){[...$("fields").children].forEach((r,i)=>r.querySelector(".num").textContent=i+1)}
+function getFields(){
+  return [...$("fields").children].map(r=>({
+    label:r.querySelector(".label").value.trim(),
+    type:r.querySelector(".type").value,
+    required:r.querySelector(".req").checked,
+    options:r.querySelector(".options").value.trim()
+  }));
+}
+function addFileType(data){
+  const box=$("fileTypes");
+  data=data||{label:"Documento",count:1,formats:["pdf"],target:1};
+  const r=document.createElement("div");r.className="file-row";
+  r.innerHTML=`
+  <div class="field-head"><b>Tipo de archivo <span class="num"></span></b><button type="button" class="danger del">Eliminar</button></div>
+  <label>Nombre</label><input class="label" value="${esc(data.label)}">
+  <div class="row">
+   <div><label>Máximo de archivos</label><input class="count" type="number" min="1" max="30" value="${data.count}"></div>
+   <div><label>Objetivo de compresión de imagen (MB)</label><input class="target" type="number" min=".1" step=".1" value="${data.target}"></div>
+  </div>
+  <label>Formatos aceptados</label>
+  <div>
+   <label><input class="fmt" value="pdf" type="checkbox" style="width:auto"> PDF</label>
+   <label><input class="fmt" value="image" type="checkbox" style="width:auto"> Imagen (JPG/PNG/WEBP)</label>
+   <label><input class="fmt" value="word" type="checkbox" style="width:auto"> Word</label>
+   <label><input class="fmt" value="excel" type="checkbox" style="width:auto"> Excel</label>
+   <label><input class="fmt" value="other" type="checkbox" style="width:auto"> Otros</label>
+  </div>`;
+  box.appendChild(r);
+  r.querySelectorAll(".fmt").forEach(x=>x.checked=data.formats.includes(x.value));
+  r.querySelector(".del").onclick=()=>{r.remove();renumberFiles();updatePreview()};
+  r.querySelectorAll("input").forEach(e=>e.addEventListener("input",updatePreview));
+  renumberFiles();updatePreview();
+}
+function renumberFiles(){[...$("fileTypes").children].forEach((r,i)=>r.querySelector(".num").textContent=i+1)}
+function getFiles(){
+  return [...$("fileTypes").children].map(r=>({
+    label:r.querySelector(".label").value.trim(),
+    count:Math.max(1,Number(r.querySelector(".count").value||1)),
+    target:Math.max(.1,Number(r.querySelector(".target").value||1)),
+    formats:[...r.querySelectorAll(".fmt:checked")].map(x=>x.value)
+  }));
+}
+function refreshEmailFields(){
+  const sel=$("emailField"), old=sel.value;
+  sel.innerHTML="";
+  getFields().forEach((f,i)=>{if(f.label){const o=document.createElement("option");o.value=i+1;o.textContent=f.label;sel.appendChild(o)}});
+  if([...sel.options].some(o=>o.value===old))sel.value=old;
+}
+function refreshFileNameFields(){
+  const fs=getFields();
+  ["nameField","schoolField","examField"].forEach(id=>{
+    const sel=$(id); if(!sel)return;
+    const old=sel.value; sel.innerHTML="";
+    fs.forEach((f,i)=>{if(f.label){const o=document.createElement("option");o.value=i+1;o.textContent=f.label;sel.appendChild(o)}});
+    if([...sel.options].some(o=>o.value===old))sel.value=old;
+  });
+}
+function addCc(){
+  if($("ccList").children.length>=10){alert("Máximo 10 copias.");return}
+  const d=document.createElement("div");d.className="cc-row";
+  d.innerHTML=`<input class="cc" type="email" placeholder="copia@ejemplo.com"><button type="button" class="danger">✕</button>`;
+  d.querySelector("button").onclick=()=>d.remove();$("ccList").appendChild(d);
+}
+async function collect(){
+  const fields=getFields();
+  if(!fields.length)throw Error("Agrega al menos un campo.");
+  if(fields.some(x=>!x.label))throw Error("Todos los campos deben tener nombre.");
+  const c={
+    title:$("title").value.trim()||"Registro de información",
+    buttonText:$("buttonText").value.trim()||"Enviar información",
+    mode:$("mode").value,design:$("design").value,logoUrl:$("logoData").value.trim(),
+    scriptUrl:$("scriptUrl").value.trim(),hosting:$("hosting").value,sheetUrl:$("sheetUrl").value.trim(),
+    sheetName:$("sheetName").value.trim()||"Respuestas",folderUrl:$("folderUrl").value.trim(),
+    folderName:$("folderName").value.trim(),schoolFolders:$("schoolFolders").checked,
+    nameField:Number($("nameField").value||0),schoolField:Number($("schoolField").value||0),examField:Number($("examField").value||0),
+    fields,files:getFiles(),mergeUploads:$("mergeUploads").checked,
+    sendEmail:$("sendEmail").value==="yes",emailSource:$("emailSource").value,
+    emailField:Number($("emailField").value||0),emailTo:$("emailTo").value.trim(),
+    emailCc:[...document.querySelectorAll(".cc")].map(x=>x.value.trim()).filter(Boolean),
+    emailSubject:$("emailSubject").value,emailBody:$("emailBody").value
+  };
+  if(c.mode==="files" && !c.files.length)throw Error("Agrega al menos un tipo de archivo.");
+  if(c.mode==="files" && (!Number.isInteger(c.nameField)||c.nameField<1||c.nameField>fields.length||!Number.isInteger(c.schoolField)||c.schoolField<1||c.schoolField>fields.length||!Number.isInteger(c.examField)||c.examField<1||c.examField>fields.length))throw Error("Selecciona los campos de Nombre, Escuela y Examen para renombrar los archivos.");
+  if(c.mode==="files" && c.files.some(x=>!x.label||!x.formats.length))throw Error("Cada tipo de archivo necesita nombre y al menos un formato.");
+  if(c.sendEmail){
+    if(c.emailSource==="form" && (!c.emailField||!fields[c.emailField-1]))throw Error("Selecciona el campo que contiene el correo.");
+    if(c.emailSource==="fixed"&&!c.emailTo)throw Error("Escribe el correo fijo.");
+    if(c.emailCc.length>10)throw Error("Máximo 10 CC.");
+    if(!c.emailSubject||!c.emailBody)throw Error("Completa asunto y cuerpo del correo.");
+  }
+  return c;
+}
+async function combineUploadsAsImage(files){
+  const list=Array.from(files||[]);
+  if(!list.length)return null;
+  const items=[];
+  for(const f of list){
+    if(f.type.startsWith("image/")){
+      const url=URL.createObjectURL(f);
+      try{
+        const img=await new Promise((resolve,reject)=>{
+          const im=new Image(); im.onload=()=>resolve(im); im.onerror=reject; im.src=url;
+        });
+        items.push({type:"image",name:f.name,img});
+      }finally{URL.revokeObjectURL(url)}
+    }else{
+      items.push({type:"text",name:f.name});
+    }
+  }
+  const width=1600, pageH=1100, height=Math.max(pageH,items.length*pageH);
+  const c=document.createElement("canvas"); c.width=width;c.height=height;
+  const x=c.getContext("2d"); x.fillStyle="#fff";x.fillRect(0,0,width,height);
+  items.forEach((it,i)=>{
+    const y=i*pageH;
+    if(it.type==="image"){
+      const scale=Math.min((width-80)/it.img.width,(pageH-140)/it.img.height);
+      const w=it.img.width*scale,h=it.img.height*scale;
+      x.drawImage(it.img,(width-w)/2,y+80+(pageH-140-h)/2,w,h);
+    }
+    x.fillStyle="#111";x.font="bold 28px Arial";x.fillText(it.name,40,y+45);
+    x.strokeStyle="#bbb";x.strokeRect(20,y+20,width-40,pageH-40);
+  });
+  return await new Promise(resolve=>c.toBlob(resolve,"image/jpeg",0.88));
+}
+async function readLogo(){
+  const f=$("logoFile").files[0];
+  if(!f)return "";
+  return await new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(String(r.result||""));
+    r.onerror=reject;
+    r.readAsDataURL(f);
+  });
+}
+function q(s){return JSON.stringify(String(s??""))}
+function safe(s){return String(s??"").replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/\r?\n/g,"\\n")}
+
+function makeCode(c){
+  const L=[];
+  L.push("/* Generado offline. Pegue este archivo como Code.gs en Google Apps Script. */");
+  L.push("const SHEET_URL="+q(c.sheetUrl)+";");
+  L.push("const SHEET_NAME="+q(c.sheetName)+";");
+  L.push("const FOLDER_URL="+q(c.folderUrl)+";");
+  L.push("const FOLDER_NAME="+q(c.folderName)+";");
+  L.push("const SCHOOL_FOLDERS="+(c.schoolFolders?"true":"false")+";");
+  L.push("const NAME_FIELD="+c.nameField+";");
+  L.push("const SCHOOL_FIELD="+c.schoolField+";");
+   L.push("const SCHOOL_FIELD_LABEL="+q((c.fields[c.schoolField-1]||{}).label||"")+";");
+  L.push("const EXAM_FIELD="+c.examField+";");
+  L.push("const SEND_EMAIL="+(c.sendEmail?"true":"false")+";");
+  L.push("const EMAIL_SOURCE="+q(c.emailSource)+";");
+  L.push("const EMAIL_FIELD="+c.emailField+";");
+  L.push("const EMAIL_TO="+q(c.emailTo)+";");
+  L.push("const EMAIL_CC="+q(c.emailCc.join(","))+";");
+  L.push("const EMAIL_SUBJECT="+q(c.emailSubject)+";");
+  L.push("const EMAIL_BODY="+q(c.emailBody)+";");
+  L.push("const HOSTING="+q(c.hosting||"apps")+";");
+  L.push("");
+  L.push("function doGet(){if(HOSTING===\'github\')return ContentService.createTextOutput(\'API activa. Este proyecto usa Index.html alojado en GitHub.\');return HtmlService.createHtmlOutputFromFile(\'Index\').setTitle("+q(c.title)+").setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);}");
+  L.push("");
+  L.push("function doPost(e){try{var data=JSON.parse(e.postData.contents||'{}');var result=submitData(data);return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);}catch(err){return ContentService.createTextOutput(JSON.stringify({ok:false,message:err.message})).setMimeType(ContentService.MimeType.JSON);}}");
+  L.push("function getSheet_(){");
+  L.push(" if(!SHEET_URL)throw new Error('Configura el link del Google Sheets.');");
+  L.push(" var ss=SpreadsheetApp.openByUrl(SHEET_URL);");
+  L.push(" var sh=ss.getSheetByName(SHEET_NAME)||ss.insertSheet(SHEET_NAME);");
+  L.push(" if(sh.getLastRow()===0)sh.appendRow(["+c.fields.map(f=>q(f.label)).join(",")+"]);");
+  L.push(" return sh;");
+  L.push("}");
+  L.push("function getRootFolder_(){");
+  L.push(" if(FOLDER_URL){var m=FOLDER_URL.match(/[-\\w]{25,}/);if(m)return DriveApp.getFolderById(m[0]);}");
+  L.push(" if(FOLDER_NAME){var it=DriveApp.getFoldersByName(FOLDER_NAME);if(it.hasNext())return it.next();return DriveApp.createFolder(FOLDER_NAME);}");
+  L.push(" throw new Error('Configura la carpeta raíz de Google Drive.');");
+  L.push("}");
+  L.push("function getFolder_(data){");
+  L.push(" var root=getRootFolder_();if(!SCHOOL_FOLDERS)return root;");
+  L.push(" var school=String(data['field'+SCHOOL_FIELD]||'').trim();");
+   L.push(" if(!school&&SCHOOL_FIELD_LABEL){for(var k=1;k<=30;k++){var v=data['field'+k];if(v!=null&&String(v).trim()===SCHOOL_FIELD_LABEL){school=String(v).trim();break;}}}");
+   L.push(" if(!school)return root;");
+  L.push(" var it=root.getFoldersByName(school);return it.hasNext()?it.next():root.createFolder(school);");
+  L.push("}");
+  L.push("function cleanFilePart_(v){return String(v||'').trim().replace(/[\\\\/:*?\"<>|#%{}~]/g,'_').replace(/\\s+/g,' ').replace(/^\\.+|\\.+$/g,'').substring(0,120)||'Sin_dato';}");
+  L.push("function makeFileName_(data,original){");
+  L.push(" var name=cleanFilePart_(data['field'+NAME_FIELD]);var school=cleanFilePart_(data['field'+SCHOOL_FIELD]);var exam=cleanFilePart_(data['field'+EXAM_FIELD]);");
+  L.push(" var ext='';var m=String(original||'').match(/(\\.[^.\\s]+)$/);if(m)ext=m[1];return name+'_'+school+'_'+exam+ext;");
+  L.push("}");
+  L.push("function replaceTags_(text,row){return String(text||'').replace(/<([^<>]+)>/g,function(_,tag){var map={");
+  c.fields.forEach((f,i)=>L.push(q(f.label)+":"+q("field"+(i+1))+",")); 
+  L.push("};var key=map[tag];return key&&row[key]!=null?String(row[key]):'';});}");
+  L.push("");
+  L.push("function validEmail_(email){return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(email||'').trim());}");
+  L.push("function mergeUploadedFiles_(files,baseName){");
+  L.push(" if(!files||!files.length)return [];");
+  L.push(" var out=[];");
+  L.push(" files.forEach(function(f,i){");
+  L.push("   var b=Utilities.base64Decode(f.base64);");
+  L.push("   var blob=Utilities.newBlob(b,f.mimeType||'application/octet-stream',f.name||('archivo_'+(i+1)));");
+  L.push("   out.push(blob);");
+  L.push(" });");
+  L.push(" return out;");
+  L.push("}");
+  L.push("function submitData(data){");
+  L.push(" var sh=getSheet_();var row=[];");
+  c.fields.forEach((f,i)=>L.push("row.push(data.field"+(i+1)+");"));
+  L.push(" sh.appendRow(row);");
+  L.push(" var folder=getFolder_(data);var saved=[];");
+  if(c.mode==="files"){
+    L.push(" if(folder){");
+    for(let i=0;i<c.files.length;i++){
+      for(let j=0;j<c.files[i].count;j++){
+        L.push(" if(data.attachment"+(i+1)+"_"+(j+1)+"){var a=data.attachment"+(i+1)+"_"+(j+1)+";var b=Utilities.base64Decode(a.base64);var blob=Utilities.newBlob(b,a.mimeType,makeFileName_(data,a.name));var file=folder.createFile(blob);saved.push(file.getUrl());}");
+      }
+    }
+    L.push(" }");
+  }
+  if(c.sendEmail){
+    L.push(" var recipient=EMAIL_SOURCE==='form'?String(data.field"+c.emailField+"||'').trim():EMAIL_TO;");
+    L.push(" if(!recipient||!validEmail_(recipient))throw new Error('El campo seleccionado para correo no contiene una dirección de correo válida.');");
+    L.push(" var mail={to:recipient,subject:replaceTags_(EMAIL_SUBJECT,data),body:replaceTags_(EMAIL_BODY,data)};if(EMAIL_CC)mail.cc=EMAIL_CC;MailApp.sendEmail(mail);");
+  }
+  L.push(" return {ok:true,message:'Registro realizado correctamente.',files:saved};");
+  L.push("}");
+  return L.join("\n");
+}
+
+function makeIndex(c){
+  const L=[];
+  L.push("<!doctype html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>");
+  L.push("<title>"+esc(c.title)+"</title><style>");
+  if(c.design==="steps"){
+    L.push("body{margin:0;font-family:Arial,sans-serif;background:#f4f6f9;color:#222}.wrap{max-width:900px;margin:auto;padding:22px}.top{background:#fff;border-radius:14px;padding:14px 20px;margin-bottom:18px;box-shadow:0 3px 12px #0001}.top img{max-width:45%;max-height:80px}.card{background:#fff;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 3px 12px #0001}.step{font-size:20px;color:#0b3b78;margin:0 0 14px}label{display:block;font-weight:bold;margin:12px 0 5px}input,select,textarea{width:100%;box-sizing:border-box;padding:11px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}button{width:100%;padding:12px;border:0;border-radius:8px;background:#007bff;color:#fff;font-weight:bold;margin-top:12px}.file{border:1px dashed #aaa;border-radius:10px;padding:12px;margin:10px 0}.progress{height:22px;background:#e5e7eb;border-radius:12px;overflow:hidden;margin-top:15px}.bar{height:100%;width:0;background:#007bff;color:#fff;text-align:center;line-height:22px;font-size:12px}.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center}.modal div{background:#fff;padding:28px;border-radius:14px;text-align:center}.spin{width:38px;height:38px;border:5px solid #eee;border-top-color:#007bff;border-radius:50%;animation:s 1s linear infinite;margin:auto}@keyframes s{to{transform:rotate(360deg)}}");
+  }else{
+    L.push("body{margin:0;font-family:Arial,sans-serif;background:#eef2f7;color:#17202a}.wrap{max-width:850px;margin:auto;padding:25px}.card{background:#fff;padding:22px;border-radius:14px;box-shadow:0 3px 12px #0001}h1{color:#0b3b78}label{display:block;font-weight:bold;margin:12px 0 5px}input,select,textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccd5df;border-radius:8px;font:inherit}button{width:100%;padding:12px;border:0;border-radius:8px;background:#0b3b78;color:#fff;font-weight:bold;margin-top:15px}");
+  }
+  L.push("</style></head><body><div class='wrap'>");
+  if(c.design==="steps"&&c.logoUrl)L.push("<div class='top'><img src='"+c.logoUrl+"' alt='Logo'></div>");
+  if(c.design!=="steps"&&c.logoUrl)L.push("<div class='top'><img src='"+c.logoUrl+"' style='max-width:45%;max-height:80px' alt='Logo'></div>");
+  L.push("<div class='card'><h1>"+esc(c.title)+"</h1>");
+  if(c.mode==="files"){
+    L.push("<div class='step'>📂 Paso 1: Sube tus archivos</div>");
+    c.files.forEach((f,i)=>{
+      let acc=[];
+      if(f.formats.includes("pdf"))acc.push("application/pdf");
+      if(f.formats.includes("image"))acc.push("image/*");
+      if(f.formats.includes("word"))acc.push(".doc,.docx");
+      if(f.formats.includes("excel"))acc.push(".xls,.xlsx");
+      if(f.formats.includes("other"))acc.push("*/*");
+      L.push("<div class='file'><label>"+esc(f.label)+" *</label><input class='upload' data-i='"+i+"' data-max='"+f.count+"' type='file' required accept='"+acc.join(",")+"'"+(f.count>1?" multiple":"")+"><div class='thumbs' id='thumbs"+i+"' style='display:flex;flex-wrap:wrap;gap:10px;margin-top:10px'></div><div class='small' id='info"+i+"'>Ningún archivo seleccionado.</div>");
+      if(f.formats.includes("image"))L.push("<label>📷 Tomar fotografía</label><input class='camera' data-i='"+i+"' type='file' accept='image/*' capture='environment'><div class='thumbs' id='cameraThumbs"+i+"' style='display:flex;flex-wrap:wrap;gap:10px;margin-top:10px'></div>");
+      L.push("<small>Las imágenes se comprimirán hasta aproximadamente "+f.target+" MB.</small></div>");
+    });
+    L.push("<div class='step'>📝 Paso 2: Captura tus datos</div>");
+  }else L.push("<div class='step'>📝 Captura tus datos</div>");
+  c.fields.forEach((f,i)=>{
+    const req=f.required?" required":"";
+    L.push("<label>"+esc(f.label)+(f.required?" *":"")+"</label>");
+    if(f.type==="textarea")L.push("<textarea id='f"+(i+1)+"' rows='4'"+req+"></textarea>");
+    else if(f.type==="select"){
+      L.push("<select id='f"+(i+1)+"'"+req+"><option value=''>Selecciona...</option>");
+      f.options.split(",").map(x=>x.trim()).filter(Boolean).forEach(x=>L.push("<option value='"+esc(x)+"'>"+esc(x)+"</option>"));
+      L.push("</select>");
+    }else if(f.type==="checkbox")L.push("<input id='f"+(i+1)+"' type='checkbox' style='width:auto'>");
+    else L.push("<input id='f"+(i+1)+"' type='"+esc(f.type)+"'"+req+">");
+  });
+  L.push("<button id='send' type='submit'>"+esc(c.buttonText)+"</button>");
+  L.push("<p id='status'></p></div></div>");
+  L.push("<script>");
+  L.push("function validateEmailFields(){var els=document.querySelectorAll('input[type=email]');for(var i=0;i<els.length;i++){var e=els[i];if(!e.value.trim())continue;if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e.value.trim())){e.setCustomValidity('Escribe un correo electrónico válido, por ejemplo nombre@dominio.com');e.reportValidity();e.focus();e.scrollIntoView({behavior:'smooth',block:'center'});return false;}e.setCustomValidity('');}return true;}");
+
+  L.push("function validateRequiredForm(){var req=document.querySelectorAll('[required]');for(var i=0;i<req.length;i++){var el=req[i];if(el.type==='file'){if(totalChosenFiles()===0){el.scrollIntoView({behavior:'smooth',block:'center'});el.focus();alert('Debes subir al menos un archivo.');return false;}}else if(!String(el.value||'').trim()){el.scrollIntoView({behavior:'smooth',block:'center'});el.focus();alert('Falta completar el dato: '+(el.getAttribute('data-label')||el.previousElementSibling?.textContent||'campo requerido'));return false;}}return true;}");
+
+  L.push("function checkRenameFields(){var ids=['nameField','schoolField','examField'];var names=['Nombre','Escuela','Examen'];for(var i=0;i<ids.length;i++){var el=document.getElementById(ids[i]);if(el&&!el.value){el.focus();el.scrollIntoView({behavior:'smooth',block:'center'});alert('Selecciona el campo de '+names[i]+' en su desplegable.');return false;}}return true;}");
+  L.push("function b64(f){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){ok(r.result.split(',')[1])};r.onerror=no;r.readAsDataURL(f)})}");
+  L.push("function compress(f,mb){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var w=im.width,h=im.height,s=Math.min(2400/w,2400/h,1);w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));var c=document.createElement('canvas');c.width=w;c.height=h;var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);var q=.92;c.toBlob(function(bl){ok(bl||f)},'image/jpeg',q)};im.src=r.result};r.onerror=no;r.readAsDataURL(f)})}");
+  L.push("async function generarImagenCombinada(files){var list=Array.from(files||[]).filter(function(f){return (f.type||'').indexOf('image/')===0;});if(!list.length)return null;var items=[];for(var i=0;i<list.length;i++){var f=list[i],url=URL.createObjectURL(f);try{var img=await new Promise(function(resolve,reject){var im=new Image();im.onload=function(){resolve(im)};im.onerror=reject;im.src=url});items.push({type:'image',name:f.name,img:img})}finally{URL.revokeObjectURL(url)}}var margin=10,totalWidth=margin,maxHeight=0;for(var i=0;i<items.length;i++){totalWidth+=items[i].img.width+margin;if(items[i].img.height>maxHeight)maxHeight=items[i].img.height}if(totalWidth>15000)throw new Error('Las imágenes son demasiado grandes');var combo=document.createElement('canvas'),ctx=combo.getContext('2d');combo.width=totalWidth;combo.height=maxHeight;ctx.fillStyle='#ffffff';ctx.fillRect(0,0,combo.width,combo.height);var x=margin;for(var i=0;i<items.length;i++){ctx.drawImage(items[i].img,x,0);x+=items[i].img.width+margin}var quality=.92,blob=null;for(var i=0;i<5;i++){blob=await new Promise(function(resolve){combo.toBlob(resolve,'image/jpeg',quality)});if(blob&&blob.size<=3*1024*1024)break;quality-=.15}if(!blob)throw new Error('No se pudo generar la imagen');return blob;}");
+  L.push("var chosen={};");
+  if(c.mode==="files"){
+    L.push("document.querySelectorAll('.upload,.camera').forEach(function(e){e.onchange=function(){var i=Number(e.dataset.i),a=Array.from(e.files||[]),max=Number(e.dataset.max||1);var key=e.classList.contains('camera')?'camera'+i:'upload'+i;chosen[key]=a.slice(0,max);renderThumbs(key,chosen[key],e);updateFileInfo(i);};});");
+  L.push("function updateFileInfo(i){var all=[];['upload'+i,'camera'+i].forEach(function(k){if(chosen[k])all=all.concat(chosen[k]);});var z=document.getElementById('info'+i);if(z)z.textContent=all.length?all.map(function(x){return x.name}).join(' | '):'Ningún archivo seleccionado.';}");
+  L.push("function renderThumbs(key,files,input){var id=key.indexOf('camera')===0?'cameraThumbs'+key.replace('camera',''):'thumbs'+key.replace('upload','');var box=document.getElementById(id);if(!box)return;box.innerHTML='';Array.from(files||[]).forEach(function(f,idx){var card=document.createElement('div');card.style.cssText='width:118px;border:1px solid #d6dce5;border-radius:10px;padding:7px;background:#fff;position:relative;box-sizing:border-box';var del=document.createElement('button');del.type='button';del.textContent='×';del.title='Eliminar archivo';del.style.cssText='position:absolute;right:3px;top:3px;width:25px;height:25px;padding:0;margin:0;border:0;border-radius:50%;background:#fff;color:#b3261e;font-size:20px;line-height:22px;cursor:pointer;z-index:3';del.onclick=function(){removeFile(key,idx,input);};card.appendChild(del);if((f.type||'').indexOf('image/')===0){var im=document.createElement('img');im.src=URL.createObjectURL(f);im.style.cssText='width:100%;height:78px;object-fit:cover;border-radius:7px';card.appendChild(im);}else{var ico=document.createElement('div');ico.style.cssText='height:78px;display:flex;align-items:center;justify-content:center;font-size:38px';ico.textContent=(f.type==='application/pdf'?'📕':'📄');card.appendChild(ico);}var nm=document.createElement('div');nm.textContent=f.name;nm.title=f.name;nm.style.cssText='font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:5px';card.appendChild(nm);box.appendChild(card);});}");
+  L.push("function removeFile(key,idx,input){var a=(chosen[key]||[]).filter(function(_,i){return i!==idx;});chosen[key]=a;var dt=new DataTransfer();a.forEach(function(f){dt.items.add(f);});input.files=dt.files;renderThumbs(key,a,input);updateFileInfo(Number(input.dataset.i));}");
+  L.push("function totalChosenFiles(){var n=0;Object.keys(chosen).forEach(function(k){n+=(chosen[k]||[]).length;});return n;}");
+  L.push("function validateRequiredFiles(){if(totalChosenFiles()>0)return true;alert('Debes subir al menos un archivo.');var first=document.querySelector('.upload,.camera');if(first){first.scrollIntoView({behavior:'smooth',block:'center'});first.focus();}return false;}");
+  }
+  L.push("document.querySelector('form')?document.querySelector('form').addEventListener('submit',function(e){e.preventDefault()}):null;");
+  L.push("document.querySelector('button[type=submit]').onclick=async function(e){e.preventDefault();if(!validateEmailFields())return;if(!validateRequiredForm())return;if(!validateRequiredFiles())return;var btn=this;btn.disabled=true;var o=document.createElement('div');o.id='sendOverlay';o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';o.innerHTML='<div style=\"background:#fff;border-radius:18px;padding:28px;width:min(520px,92vw);text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25)\"><div style=\"font-size:22px;font-weight:800;margin-bottom:10px\">Uniendo archivos por favor espere</div><div id=\"mergeText\" style=\"margin:8px 0\">Preparando archivos...</div><div style=\"height:18px;background:#e9edf3;border-radius:999px;overflow:hidden\"><div id=\"mergeBar\" style=\"height:100%;width:0%;transition:width .25s\"></div></div><div id=\"mergePct\" style=\"margin-top:8px;font-weight:700\">0%</div><div id=\"uploadBox\" style=\"display:none;margin-top:24px\"><div id=\"uploadTitle\" style=\"font-size:22px;font-weight:800;margin-bottom:10px\">Subiendo archivos por favor espere</div><div id=\"uploadText\" style=\"margin:8px 0\">Conectando con Google...</div><div style=\"height:18px;background:#e9edf3;border-radius:999px;overflow:hidden\"><div id=\"uploadBar\" style=\"height:100%;width:0%;transition:width .25s\"></div></div><div id=\"uploadPct\" style=\"margin-top:8px;font-weight:700\">0%</div></div></div>';document.body.appendChild(o);var mergeBar=document.getElementById('mergeBar'),mergePct=document.getElementById('mergePct'),mergeText=document.getElementById('mergeText'),uploadBox=document.getElementById('uploadBox'),uploadBar=document.getElementById('uploadBar'),uploadPct=document.getElementById('uploadPct'),uploadText=document.getElementById('uploadText');var data={};var totalFiles=0,processedFiles=0;Object.keys(chosen).forEach(function(k){totalFiles+=(chosen[k]||[]).length;});mergeText.textContent='Preparando '+totalFiles+' archivo(s)...';mergeBar.style.width='5%';mergePct.textContent='5%';");
+  c.fields.forEach((f,i)=>L.push("data.field"+(i+1)+"="+(f.type==="checkbox"?"document.getElementById('f"+(i+1)+"').checked":"document.getElementById('f"+(i+1)+"').value")+";"));
+  if(c.mode==="files"){
+    if(c.mergeUploads){
+      L.push("var allImageFiles=[];var nonImageFiles=[];");
+      for(let i=0;i<c.files.length;i++){
+        L.push("var filesForSlot"+i+"=[];if(chosen['upload"+i+"'])filesForSlot"+i+"=filesForSlot"+i+".concat(chosen['upload"+i+"']);if(chosen['camera"+i+"'])filesForSlot"+i+"=filesForSlot"+i+".concat(chosen['camera"+i+"']);");
+        L.push("for(var k=0;k<filesForSlot"+i+".length;k++){var nf=filesForSlot"+i+"[k];if((nf.type||'').indexOf('image/')===0)allImageFiles.push(nf);else nonImageFiles.push({file:nf,slot:"+i+"});}");
+      }
+      L.push("if(allImageFiles.length){mergeText.textContent='Uniendo imágenes por favor espere';var merged=await generarImagenCombinada(allImageFiles);if(merged){data.attachment1_1={name:'archivos_combinados.jpg',mimeType:'image/jpeg',base64:await b64(merged)};processedFiles+=allImageFiles.length;var mp=Math.min(100,Math.round(5+(processedFiles/Math.max(1,totalFiles))*95));mergeBar.style.width=mp+'%';mergePct.textContent=mp+'%';}}");
+      L.push("for(var ni=0;ni<nonImageFiles.length;ni++){var nx=nonImageFiles[ni],ns=nx.file;data['attachment'+(nx.slot+1)+'_'+(ni+1)]={name:ns.name,mimeType:ns.type||'application/octet-stream',base64:await b64(ns)};processedFiles++;var mp2=Math.min(100,Math.round(5+(processedFiles/Math.max(1,totalFiles))*95));mergeBar.style.width=mp2+'%';mergePct.textContent=mp2+'%';}");
+    }else{
+      for(let i=0;i<c.files.length;i++){
+        L.push("var filesForSlot=[];if(chosen['upload"+i+"'])filesForSlot=filesForSlot.concat(chosen['upload"+i+"']);if(chosen['camera"+i+"'])filesForSlot=filesForSlot.concat(chosen['camera"+i+"']);");
+        L.push("for(var j=0;j<filesForSlot.length;j++){var ff=filesForSlot[j],send=ff;if((ff.type||'').indexOf('image/')===0)send=await compress(ff,"+c.files[i].target+");data[\"attachment"+(i+1)+"_\"+(j+1)]={name:send.name,mimeType:send.type||ff.type,base64:await b64(send)};processedFiles++;var mp=Math.min(100,Math.round(5+(processedFiles/Math.max(1,totalFiles))*95));mergeBar.style.width=mp+'%';mergePct.textContent=mp+'%';mergeText.textContent='Uniendo archivos por favor espere';}");
+      }
+    }
+  }
+  if(c.hosting==="github"){
+    L.push("mergeBar.style.width='100%';mergePct.textContent='100%';mergeText.textContent='Archivos integrados correctamente';uploadBox.style.display='block';uploadBar.style.width='0%';uploadPct.textContent='0%';uploadText.textContent='Subiendo archivos por favor espere';var up=0;var timer=setInterval(function(){if(up<95){up+=5;uploadBar.style.width=up+'%';uploadPct.textContent=up+'%';}},350);var timeout=setTimeout(function(){clearInterval(timer);btn.disabled=false;var ov=document.getElementById('sendOverlay');if(ov)ov.remove();alert('error al subir revisa tu conexión a internet');},60000);function finishUpload(r){clearTimeout(timeout);clearInterval(timer);if(!r||r.ok===false)throw new Error(r&&r.message?r.message:'Apps Script devolvió un error.');uploadBar.style.width='100%';uploadPct.textContent='100%';uploadText.textContent='Datos enviados correctamente';document.getElementById('uploadTitle').textContent='Datos enviados';btn.disabled=false;setTimeout(function(){var ov=document.getElementById('sendOverlay');if(ov)ov.remove();},1600);var form=document.querySelector('form');if(form)form.reset();chosen={};}function failUpload(){clearTimeout(timeout);clearInterval(timer);var ov=document.getElementById('sendOverlay');if(ov)ov.remove();btn.disabled=false;alert('error al subir revisa tu conexión a internet');}try{var req=new XMLHttpRequest();req.open('POST',"+q(c.scriptUrl)+",true);req.timeout=60000;req.setRequestHeader('Content-Type','text/plain;charset=UTF-8');req.onload=function(){if(req.status>=200&&req.status<300){try{finishUpload(JSON.parse(req.responseText));}catch(e){failUpload();}}else failUpload();};req.onerror=failUpload;req.ontimeout=failUpload;req.send(JSON.stringify(data));}catch(e){failUpload();}");
+  }else{
+    L.push("mergeBar.style.width='100%';mergePct.textContent='100%';mergeText.textContent='Archivos integrados correctamente';uploadBox.style.display='block';uploadBar.style.width='0%';uploadPct.textContent='0%';uploadText.textContent='Subiendo archivos por favor espere';var up=0;var timer=setInterval(function(){if(up<95){up+=5;uploadBar.style.width=up+'%';uploadPct.textContent=up+'%';}},350);var timeout=setTimeout(function(){clearInterval(timer);btn.disabled=false;var ov=document.getElementById('sendOverlay');if(ov)ov.remove();alert('error al subir revisa tu conexión a internet');},60000);google.script.run.withSuccessHandler(function(r){clearTimeout(timeout);clearInterval(timer);if(!r||r.ok===false)throw new Error(r&&r.message?r.message:'Apps Script devolvió un error.');uploadBar.style.width='100%';uploadPct.textContent='100%';uploadText.textContent='Datos enviados correctamente';document.getElementById('uploadTitle').textContent='Datos enviados';btn.disabled=false;setTimeout(function(){var ov=document.getElementById('sendOverlay');if(ov)ov.remove();},1600);var form=document.querySelector('form');if(form)form.reset();chosen={};}).withFailureHandler(function(e){clearTimeout(timeout);clearInterval(timer);var ov=document.getElementById('sendOverlay');if(ov)ov.remove();btn.disabled=false;alert('error al subir revisa tu conexión a internet');}).submitData(data);");
+  }
+  L.push("};");
+  L.push("<\/script></body><"+"/html>");
+  return L.join("\n");
+}
+
+function refreshGeneratedFieldSelectors(){
+  const fields=(typeof getFields==="function"?getFields():[]);
+  const map=[
+    ["nameField",/nombre|name|alumno|student|candidato/i],
+    ["schoolField",/escuela|school|colegio|instituto/i],
+    ["examField",/examen|exam|prueba|test|nivel|level/i],
+    ["emailField",/correo|email|e-mail/i]
+  ];
+
+  map.forEach(([id,rx])=>{
+    const el=$(id);
+    if(!el)return;
+
+    // Preserve the selected field by LABEL, not by its numeric position.
+    // This prevents the school selector from silently changing to another
+    // field (for example, "Fecha de nacimiento") when fields are inserted/reordered.
+    const oldOption=el.options[el.selectedIndex];
+    const oldLabel=oldOption ? String(oldOption.textContent||"").trim() : "";
+    el.innerHTML="";
+
+    fields.forEach((f,i)=>{
+      if(!f.label)return;
+      const o=document.createElement("option");
+      // 1-based field number used by collect() and the generated Apps Script.
+      o.value=String(i+1);
+      o.textContent=f.label;
+      el.appendChild(o);
+    });
+
+    if(!fields.length)return;
+
+    // Restore the same labeled field if it still exists.
+    const sameLabel=[...el.options].find(o=>String(o.textContent||"").trim()===oldLabel);
+    if(sameLabel){
+      el.value=sameLabel.value;
+      return;
+    }
+
+    // Otherwise select the first field matching the semantic name.
+    const match=fields.findIndex(f=>rx.test(String(f.label||"")));
+    el.value=String(match>=0?match+1:1);
+  });
+
+  const sp=$("schoolPreview");
+  if(sp){
+    const n=Number($("schoolField")?.value||0);
+    const f=n>0?fields[n-1]:null;
+    sp.textContent=f
+      ?"Campo de escuela seleccionado: "+(f.label||"Sin nombre")
+      :"Campo de escuela seleccionado: —";
+  }
+}
+
+function updatePreview(){
+  refreshGeneratedFieldSelectors();
+  const c={title:$("title").value||"Mi formulario",buttonText:$("buttonText").value||"Enviar información",mode:$("mode").value,design:$("design").value,logoUrl:$("logoData").value};
+  const fields=getFields(); c.fields=fields; c.files=getFiles();
+  // Build a safe preview document without Apps Script calls.
+  let d=makeIndex({...c,sendEmail:false,emailSource:"form",emailField:0,emailTo:"",emailCc:[],emailSubject:"",emailBody:"",sheetUrl:"",sheetName:"Respuestas",folderUrl:"",folderName:"",scriptUrl:""});
+  d=d.replace(/<script>[\s\S]*?<\/script>/,"");
+  $("previewFrame").srcdoc=d;
+}
+$("addField").onclick=()=>addField();
+$("add10").onclick=()=>{for(let i=0;i<10&&$("fields").children.length<30;i++)addField()};
+$("addFileType").onclick=()=>addFileType();
+$("mode").onchange=()=>{$("filesCard").style.display=$("mode").value==="files"?"block":"none";updatePreview()};
+$("design").onchange=updatePreview;
+if($("hosting"))$("hosting").onchange=updatePreview;
+if($("useSheet"))$("useSheet").onchange=updatePreview;
+if($("useDrive"))$("useDrive").onchange=updatePreview;
+if($("mergeUploads"))$("mergeUploads").onchange=updatePreview;
+if($("useEmail"))$("useEmail").onchange=()=>{$("emailBox").style.display=$("useEmail").checked?"block":"none";refreshEmailFields();updatePreview()};
+["title","buttonText","scriptUrl","sheetUrl","sheetName","folderUrl","folderName","emailSubject","emailBody"].forEach(id=>{
+  const el=$(id); if(el) el.addEventListener("input",updatePreview);
+});
+$("sendEmail").onchange=()=>{$("emailBox").style.display=$("sendEmail").value==="yes"?"block":"none";refreshEmailFields();updatePreview()};
+$("emailSource").onchange=()=>{$("emailFormBox").style.display=$("emailSource").value==="form"?"block":"none";$("emailFixedBox").style.display=$("emailSource").value==="fixed"?"block":"none"};
+$("addCc").onclick=addCc;
+if($("schoolFolders"))$("schoolFolders").onchange=()=>{$("schoolFolderBox").style.display=$("schoolFolders").checked?"block":"none";updatePreview()};
+if($("nameField"))$("nameField").onchange=updatePreview;
+if($("schoolField"))$("schoolField").onchange=updatePreview;
+if($("examField"))$("examField").onchange=updatePreview;
+$("logoFile").onchange=async()=>{
+  $("logoData").value=await readLogo();
+  updatePreview();
+};
+
+function download(name,content,type){
+  try{
+    const blob=new Blob([content],{type:type||"application/octet-stream"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=name;
+    a.rel="noopener";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },1000);
+  }catch(err){
+    alert("No fue posible descargar "+name+": "+err.message);
+  }
+}
+$("generate").onclick=async()=>{
+  try{
+    $("message").textContent="Generando archivos...";
+    $("generate").disabled=true;
+
+    $("logoData").value=await readLogo();
+    refreshGeneratedFieldSelectors();
+    const c=await collect();
+
+    const code=makeCode(c);
+    const html=makeIndex(c);
+
+    window.generatedCodeGS=code;
+    window.generatedIndexHTML=html;
+
+    let box=$("downloadBox");
+    if(!box){
+      box=document.createElement("div");
+      box.id="downloadBox";
+      box.style.cssText="margin-top:16px;padding:18px;border:1px solid #d8dee9;border-radius:14px;background:#f8fafc";
+      $("message").parentNode.appendChild(box);
+    }
+
+    box.innerHTML="";
+
+    const h=document.createElement("div");
+    h.style.cssText="font-weight:800;font-size:18px;margin-bottom:12px";
+    h.textContent="Archivos generados correctamente";
+    box.appendChild(h);
+
+    const b1=document.createElement("button");
+    b1.type="button";
+    b1.className="primary";
+    b1.textContent="⬇ Descargar Code.gs";
+    b1.style.display="block";
+    b1.style.marginBottom="10px";
+    b1.onclick=function(){
+      download("Code.gs",window.generatedCodeGS,"text/plain;charset=utf-8");
+    };
+
+    const b2=document.createElement("button");
+    b2.type="button";
+    b2.className="primary";
+    b2.textContent="⬇ Descargar Index.html";
+    b2.style.display="block";
+    b2.onclick=function(){
+      download("Index.html",window.generatedIndexHTML,"text/html;charset=utf-8");
+    };
+
+    box.appendChild(b1);
+    box.appendChild(b2);
+
+    $("message").textContent="✓ Code.gs e Index.html están listos.";
+  }catch(e){
+    console.error(e);
+    $("message").textContent="";
+    alert(e&&e.message?e.message:"No fue posible generar los archivos.");
+  }finally{
+    $("generate").disabled=false;
+  }
+};
+$("reset").onclick=()=>{
+  if(!confirm("¿Restablecer toda la configuración?"))return;
+  location.reload();
+};
+
+addField({label:"Nombre completo",type:"text",required:true});
+addField({label:"Correo",type:"email",required:true});
+addField({label:"Grupo",type:"text",required:false});
+addField({label:"Nivel",type:"select",required:false,options:"A1,A2,B1,B2,C1"});
+$("mode").dispatchEvent(new Event("change"));
+refreshEmailFields();
+refreshGeneratedFieldSelectors();
+if($("schoolFolderBox"))$("schoolFolderBox").style.display=$("schoolFolders").checked?"block":"none";
+try{updatePreview()}catch(e){console.error("Vista previa:",e)}
+</script>
+</body>
+</html>
